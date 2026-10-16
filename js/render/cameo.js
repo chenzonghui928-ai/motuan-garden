@@ -5,54 +5,68 @@
 // 偶尔出现几十秒（由 main.js 安排），小动物会抬头看、冒统一气泡；身影本身可以点（main.js 用 hit() 判断），点了 Lenia 说话、偶尔送东西。
 // 模型第一次出现时才建（省开局时间）；不出现时整组隐藏，不占绘制。
 import * as THREE from 'three';
-import { ctex, PI, TAU, clamp, lerp, smooth } from '../lib/core.js';
-import { groundH } from '../lib/environment.js';
+import { ctex, PI, TAU, clamp, lerp, smooth, M as M0, bake, tint, mergeList } from '../lib/core.js';
+import { groundH, makeTuftGeo, OUTER_TREES } from '../lib/environment.js';
 import { streamDist, GATES } from '../shared/layout.js';
 import { createLenia, leniaMaterials, LENIA_H } from '../lib/lenia-model.js';
 import { createPlayerHand, HAND_LEN } from '../lib/hand-model.js';
 
 const gy = (x, z) => groundH(x, z);
-const HIP = 0.45 * LENIA_H; // 腰（牛仔裤上沿）高度
+const CALF = 0.2 * LENIA_H; // 看得见的腿（膝盖往上慢慢淡掉）
 
-// 观赏草（喷泉草）：根部收拢、上面散开的一丛细长叶片，叶尖往外弯。腿从两丛之间露出来，腰被散开的叶子盖住
-function grassClump(cx, cz, n, h0, h1, spread, seed, tint, y0 = 0, br0 = 0.7) {
-  let a = seed * 9301 + 49297; const rnd = () => { a = (a * 9301 + 49297) % 233280; return a / 233280; };
-  const P = [], C = [], I = []; const col = new THREE.Color();
-  for (let i = 0; i < n; i++) {
-    const ang = rnd() * TAU, h = lerp(h0, h1, rnd()), out = spread * (0.45 + rnd() * 0.75), w = 0.07 + rnd() * 0.07, S = 7;
-    const br = br0 * Math.sqrt(rnd()), ba = rnd() * TAU; const bx = cx + Math.cos(ba) * br, bz = cz + Math.sin(ba) * br; const dx = Math.cos(ang), dz = Math.sin(ang);
-    const px = -dz, pz = dx; const base = P.length / 3;
-    col.set(tint).offsetHSL((rnd() - 0.5) * 0.04, (rnd() - 0.5) * 0.15, (rnd() - 0.5) * 0.12);
-    for (let k = 0; k <= S; k++) {
-      const t = k / S; const r = out * t * t * (1.1 - 0.1 * t) + 0.15 * t; const y = h * Math.sin(t * PI * 0.5) - h * 0.22 * t * t * t; const ww = w * (1 - t * 0.85);
-      const x = bx + dx * r, z = bz + dz * r; const yy = y + y0; P.push(x - px * ww, yy, z - pz * ww, x + px * ww, yy, z + pz * ww);
-      const sh = 0.55 + 0.45 * t; C.push(col.r * sh, col.g * sh, col.b * sh, col.r * sh, col.g * sh, col.b * sh);
-      if (k) { const q = base + (k - 1) * 2; I.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
-    }
+// 花园边的花圃：低矮蓬松的叶丛 + 小雏菊、粉紫小花、几簇草（和小镇花草同一套画法，按人类尺度放大）。常驻在花园外圈，Lenia 偶尔站在花圃后面
+const BED_N = 4;
+function bedGeo(seed) {
+  let a = seed * 9301 + 49297; const rnd = () => { a = (a * 9301 + 49297) % 233280; return a / 233280; }; const RR = (x, y) => x + (y - x) * rnd();
+  const parts = []; const col = new THREE.Color();
+  for (let i = 0; i < 9; i++) { // 叶丛：几个压扁的圆球挤在一起，前低后高
+    const ang = RR(0, TAU), r = RR(0.3, 2.2); const x = Math.cos(ang) * r * 1.3, z = Math.sin(ang) * r * 0.75 + 0.4; const sz = RR(0.7, 1.15) * (1 - r * 0.12);
+    col.setHSL(RR(0.25, 0.31), RR(0.42, 0.58), RR(0.3, 0.42)); parts.push(tint(bake(new THREE.IcosahedronGeometry(1, 2), [x, sz * 0.42, z], [0, RR(0, TAU), 0], [sz * 1.2, sz * 0.78, sz]), col.getStyle()));
   }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.setIndex(I); g.computeVertexNormals();
-  return g;
+  for (let i = 0; i < 6; i++) { const ang = RR(0, TAU), r = RR(1.4, 2.8); parts.push(bake(makeTuftGeo(7), [Math.cos(ang) * r * 1.3, 0, Math.sin(ang) * r * 0.8], [0, RR(0, TAU), 0], [2.4, RR(1.6, 2.3), 2.4])); }
+  const petals = new THREE.Shape(); for (let i = 0; i <= 20; i++) { const q = i / 20 * TAU; const r = 0.13 + 0.09 * Math.pow(Math.abs(Math.cos(q * 5)), 0.6); const x = Math.cos(q) * r, y = Math.sin(q) * r; i ? petals.lineTo(x, y) : petals.moveTo(x, y); }
+  const pg = new THREE.ShapeGeometry(petals);
+  for (let i = 0; i < 16; i++) { // 小花：白雏菊、粉的、淡紫的，开在叶丛上
+    const ang = RR(0, TAU), r = RR(0.2, 2.4); const x = Math.cos(ang) * r * 1.3, z = Math.sin(ang) * r * 0.75 + 0.3; const h = RR(0.95, 1.55) * (1 - r * 0.1); const k = RR(1.7, 2.3);
+    const pc = ['#ffffff', '#ffffff', '#ffb3c8', '#d9c2ff', '#fff2a8'][Math.floor(rnd() * 5)];
+    parts.push(tint(new THREE.CylinderGeometry(0.03, 0.04, h, 4).translate(x, h / 2, z), '#4f9a3c'));
+    parts.push(tint(bake(pg, [x, h, z], [-PI / 2 + RR(0.1, 0.5), RR(0, TAU), 0], [k, k, k]), pc));
+    parts.push(tint(bake(new THREE.SphereGeometry(0.075, 8, 6), [x, h + 0.03, z], [0, 0, 0], [k, k * 0.6, k]), pc === '#fff2a8' ? '#f2a33a' : '#ffcf3a'));
+  }
+  return mergeList(parts, true);
 }
-function mergeG(list) { const P = [], C = [], I = []; let o = 0; for (const g of list) { const p = g.attributes.position.array, c = g.attributes.color.array; P.push(...p); C.push(...c); for (const i of g.index.array) I.push(i + o); o += p.length / 3; } const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.setIndex(I); g.computeVertexNormals(); return g; }
-
+// 腿：只露小腿以下（官方牛仔裤宽裤腿 + 明显的卷边 + 白袜），往上慢慢淡掉——像镜头只拍到花圃边的一截，不会露出“切口”
+const FADE = { uFade0: { value: 0 }, uFade1: { value: 1 } }; // 世界高度：裤腿从膝盖上一点往上慢慢淡掉（每帧按脚下地面高度设）
+function fadeDenim(M) {
+  const m = M.denim.clone(); m.transparent = false; m.alphaHash = true; // 抖动透明：照样写深度，淡掉的地方不会透出裤管里面的接缝
+  m.onBeforeCompile = (sh) => { M.denim.onBeforeCompile(sh); Object.assign(sh.uniforms, FADE);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vFy;').replace('#include <project_vertex>', '#include <project_vertex>\nvFy = (modelMatrix * vec4(transformed, 1.0)).y;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vFy; uniform float uFade0, uFade1;').replace('#include <alphatest_fragment>', 'diffuseColor.a *= 1.0 - smoothstep(uFade0, uFade1, vFy);\n#include <alphatest_fragment>'); };
+  m.customProgramCacheKey = () => 'leniaFadeDenim'; return m;
+}
 function buildLegs() {
   const L = createLenia(); L.setPose('idle', true); L.update(0, 0);
-  L.rig.J.chest.visible = false; // 只要腰以下：上身（开衫、手、头）整个不画
-  const root = new THREE.Group(); root.add(L.group);
-  const M = leniaMaterials();
-  // 牛仔裤腰头：一圈裤腰 + 盖住开口（被草挡住，主要防止从上往下看穿）
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * LENIA_H, 0.129 * LENIA_H, 0.035 * LENIA_H, 28), new THREE.MeshStandardMaterial({ color: '#4d7a2c', roughness: 0.9 })); cap.scale.z = 0.8; cap.position.y = HIP + 0.01 * LENIA_H; cap.castShadow = true; root.add(cap);
-  // 高草：左右两丛把腰盖住，后面一丛打底，前面一丛矮的挡住鞋边一点
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.85 });
-  const W = 0.09 * LENIA_H;
-  const g = mergeG([grassClump(-W * 3.2, 0.3, 150, HIP * 0.95, HIP * 1.3, 3.4, 3, '#7aa443'), grassClump(W * 3.2, 0.0, 150, HIP * 0.95, HIP * 1.3, 3.4, 7, '#76a141'),
-    grassClump(0, -1.8, 170, HIP * 1.0, HIP * 1.38, 3.0, 11, '#6a963b'), grassClump(-W * 2.2, 2.4, 40, 1.2, 2.4, 1.6, 13, '#86b04a'), grassClump(W * 2.4, 2.2, 40, 1.2, 2.2, 1.6, 17, '#86b04a'),
-    // 腰前、腰后两簇高草穗：细茎从地面长上来，到腰那儿散开成一大蓬，把裤腰盖住
-    grassClump(0, 1.0, 230, 2.0, 3.0, 2.7, 23, '#8bb44c', HIP - 1.15, 0.9), grassClump(0, -0.5, 160, 1.8, 2.6, 2.4, 29, '#7aa443', HIP - 0.9, 0.8),
-    grassClump(1.5, 1.0, 6, HIP - 1.0, HIP - 0.8, 0.5, 31, '#6f9a3c', 0, 0.3), grassClump(-1.5, 0.9, 6, HIP - 1.0, HIP - 0.8, 0.5, 37, '#6f9a3c', 0, 0.3)]);
-  const grass = new THREE.Mesh(g, mat); grass.castShadow = true; grass.receiveShadow = true; root.add(grass);
-  L.group.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  root.visible = false; return { root, L, grass };
+  L.rig.J.chest.visible = false; // 上身（开衫、手、头）整个不画
+  const M = leniaMaterials(); const fm = fadeDenim(M);
+  const cuffMat = new THREE.MeshStandardMaterial({ color: '#a7c0e2', roughness: 0.9, bumpMap: M.denim.bumpMap, bumpScale: 0.6 }); // 卷边翻出来的是牛仔布的反面，颜色浅一点
+  L.group.traverse(o => { if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true;
+    if (/^pelvis\|/.test(o.name)) { o.visible = false; o.castShadow = false; } // 腰：不画（大腿往上淡掉）
+    else if (/\|denim/.test(o.name)) { o.material = fm; o.castShadow = /^kn/.test(o.name); } });
+  for (const [s, Lk] of [[1, 'L'], [-1, 'R']]) { // 卷边：一圈厚厚的翻边 + 两道褶
+    const kn = L.rig.J['kn' + Lk]; const ry = (y) => y - 0.215; const x = 0;
+    const band = new THREE.Mesh(new THREE.LatheGeometry([[0.0715, 0.0], [0.079, 0.006], [0.081, 0.022], [0.079, 0.04], [0.071, 0.045]].map(([r, y]) => new THREE.Vector2(r, y)), 22), cuffMat); band.position.set(x, ry(0.045), 0); kn.add(band); // 一圈鼓鼓的翻边
+    for (const [y, tilt] of [[0.11, 0.12], [0.135, -0.09]]) { const f = new THREE.Mesh(new THREE.TorusGeometry(0.0695, 0.005, 5, 20, PI * 1.1), fm); f.rotation.set(PI / 2, 0, s * 0.6 + tilt); f.position.set(x, ry(y), 0.004); kn.add(f); } // 布料褶
+    for (const m of kn.children) if (m.isMesh && m.material === cuffMat) { m.castShadow = true; m.receiveShadow = true; }
+  }
+  const root = new THREE.Group(); root.add(L.group); root.visible = false; return { root, L };
+}
+function buildBeds(scene) {
+  const mat = M0('#ffffff', { vc: true, r: 0.85, rim: 0.35, sway: 0.05, ds: true }); const beds = [];
+  let k = 0; for (let i = 0; i < 64 && beds.length < BED_N; i++) { const a = 0.35 + i * 1.618 * 1.3, r = 63.5; const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (streamDist(x, z) < 12 || GATES.some(g => Math.hypot(g[0] - x, g[1] - z) < 15) || beds.some(b => Math.hypot(b.x - x, b.z - z) < 40)) continue;
+    const m = new THREE.Mesh(bedGeo(++k * 7 + 3), mat); m.position.set(x, gy(x, z) - 0.05, z); m.rotation.y = -a - PI / 2; m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    beds.push({ x, z, a, m }); OUTER_TREES.push([x, z, 1.45]); } // 放旧物时也避开花圃
+  return beds;
 }
 // 喷壶（按“手长 HAND_LEN”的单位建，挂在手里后整体跟手一起缩到 Lenia 的尺度）
 function buildCan() {
@@ -129,7 +143,7 @@ function buildWindow() {
 export const LENIA_CAMEO = true;
 export class Cameo {
   constructor(scene, props) {
-    this.scene = scene; this.props = props; this.win = buildWindow(); scene.add(this.win.root);
+    this.scene = scene; this.props = props; this.win = buildWindow(); scene.add(this.win.root); this.beds = buildBeds(scene);
     this.legs = null; this.water = null; this.kind = null; this.t = 0; this.dur = 0; this.focus = { x: 0, z: 0 }; this.hitP = new THREE.Vector3(); this.seen = 0;
   }
   ensure(kind) {
@@ -145,7 +159,10 @@ export class Cameo {
     const bad = (q) => streamDist(Math.cos(q) * r, Math.sin(q) * r) < 9 || GATES.some(g => Math.hypot(g[0] - Math.cos(q) * r, g[1] - Math.sin(q) * r) < 13);
     for (let k = 0; k < 40 && bad(a); k++) a += 0.12; // 别正好踩在溪里、挡住村口
     const x = Math.cos(a) * r, z = Math.sin(a) * r; this.a = a; this.x = x; this.z = z; this.focus = { x: Math.cos(a) * (r - 8), z: Math.sin(a) * (r - 8) };
-    if (kind === 'legs') { const R = this.legs.root; R.position.set(x, gy(x, z) - 0.05, z); R.rotation.y = -a - PI / 2; R.visible = true; this.hitP.set(x, gy(x, z) + HIP * 0.6, z); } // 脸朝小镇（-径向）
+    if (kind === 'legs') { // 站到离这个方位最近的花圃后面（往花园外一步），脸朝小镇
+      let B = this.beds[0]; for (const b of this.beds) if (Math.abs(Math.atan2(Math.sin(b.a - az), Math.cos(b.a - az))) < Math.abs(Math.atan2(Math.sin(B.a - az), Math.cos(B.a - az)))) B = b;
+      this.a = B.a; const tx = -Math.sin(B.a), tz = Math.cos(B.a); this.x = B.x + Math.cos(B.a) * 0.9 + tx * 2.7; this.z = B.z + Math.sin(B.a) * 0.9 + tz * 2.7; // 站在花圃旁边，脚边就是花 this.focus = { x: Math.cos(B.a) * 55, z: Math.sin(B.a) * 55 };
+      const R = this.legs.root; R.position.set(this.x, gy(this.x, this.z) - 0.05, this.z); R.rotation.y = -B.a - PI / 2; R.visible = true; this.hitP.set(this.x, gy(this.x, this.z) + CALF * 0.6, this.z); return { x: this.x, z: this.z }; }
     if (kind === 'water') { const W = this.water; W.base = null; W.root.position.set(x, gy(x, z), z); W.root.rotation.y = -a + PI / 2; W.root.visible = true; W.drops.visible = true; for (const p of W.P) p.y = -999; this.hitP.set(x, gy(x, z) + 3, z); }
     if (kind === 'window') { const W = this.win; const S = night > 0.45 ? 1 : 0; W.night = S; let hy = gy(x, z); for (let k = 0; k < 9; k++) { const q = a + (k % 3 - 1) * 0.2, rr = r + (Math.floor(k / 3) - 1) * 12; hy = Math.max(hy, gy(Math.cos(q) * rr, Math.sin(q) * rr)); } W.root.position.set(x, hy + 0.2, z); W.root.rotation.y = PI / 2 - a; W.mat.map = S ? W.tA : W.tS; W.mat.blending = S ? THREE.AdditiveBlending : THREE.NormalBlending; W.mat.color.set(S ? '#ffb45e' : '#1d2a14'); W.mat.needsUpdate = true;
       if (S) W.root.scale.set(34, 1, 30); else W.root.scale.set(16, 1, 34); W.root.visible = true; this.hitP.set(x, hy + 0.3, z); }
@@ -160,9 +177,9 @@ export class Cameo {
   }
   update(dt, time) {
     if (!this.kind) return; this.t += dt; const t = this.t, D = this.dur; const inn = smooth(0, 3, t), out = smooth(D - 3.5, D, t);
-    if (this.kind === 'legs') { // 从花园外走进草丛（往小镇方向挪几步），站一会儿、换个重心，最后走开
+    if (this.kind === 'legs') { // 从花园外走到花圃后面（往小镇方向挪几步），站一会儿、换个重心，最后走开
       const Lg = this.legs; const step = (1 - inn) * 9 + out * 9; const R = Lg.root; const dirx = Math.cos(this.a), dirz = Math.sin(this.a);
-      R.position.set(this.x + dirx * step, gy(this.x, this.z) - 0.05, this.z + dirz * step);
+      const px = this.x + dirx * step, pz = this.z + dirz * step; const g0 = gy(px, pz); R.position.set(px, g0 - 0.05, pz); FADE.uFade0.value = g0 + 0.26 * LENIA_H; FADE.uFade1.value = g0 + 0.42 * LENIA_H;
       Lg.L.setPose(inn < 0.98 || out > 0.02 ? 'walk' : 'idle'); Lg.L.update(dt, time);
       if (Lg.L.pose === 'idle') { const J = Lg.L.rig.J; J.hipL.rotation.z += 0.07; J.hipR.rotation.z -= 0.07; J.anL.rotation.z -= 0.07; J.anR.rotation.z += 0.07; } // 站得稍微开一点，两条腿分得清
       if (t > D) this.stop();

@@ -63,7 +63,7 @@ export function installLenia(Sim) {
       if (lot.stage !== 'landed' || lot.carry || lot.rescuer) continue; // 正被抱去躲雨：先别商量用途
       const w = this.watchers(lot); for (const r of w) { if (!lot.look.seen.includes(r.id)) { lot.look.seen.push(r.id); this.emo(r, this.rng() < 0.5 ? EMO.WOW : EMO.Q, 3, { k: 'gawk', a: ITEMS[lot.item].name }); } }
       if (night) continue;
-      if (w.length < 2 && this.t - lot.look.sum > 25) this.summon(lot, this.t - lot.landT > 60 ? 80 : LOOK_R + 12);
+      if (w.length < 2 && this.t - lot.look.sum > 25) this.summon(lot, this.t - lot.landT > 60 ? Math.max(80, Math.hypot(lot.x, lot.z) + 50) : LOOK_R + 12); // 放在花园外圈的：多等一会儿，镇上的都能听见
       if (w.length >= 2) lot.look.t2 += 1; else if (w.length === 1) lot.look.t2 += 0.4;
       if (lot.look.t2 >= 6 && !lot.look.talk) { lot.look.talk = 1; for (const r of w) this.emo(r, EMO.TALK, 5, { k: 'talk', a: ITEMS[lot.item].name, b: w.filter(o => o !== r).map(o => o.name).slice(0, 2).join('、') }); }
       const forced = this.t - lot.landT > DAY * 0.12 && lot.look.seen.length === 0;

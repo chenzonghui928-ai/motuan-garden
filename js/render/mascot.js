@@ -53,15 +53,21 @@ export class Nugget {
       if (d < 0.15) { this.path.shift(); if (!this.path.length) { if (this.state === 'toSleep') { this.state = 'sleep'; this.yaw = Math.atan2(this.x, this.z); } else { this.wait = this.state === 'visit' ? 6 + Math.random() * 6 : 2 + Math.random() * 5; this.state = 'idle'; } } }
       else { const s = Math.min(d, SPEED * dt); this.x += dx / d * s; this.z += dz / d * s; const ty = Math.atan2(dx, dz); this.yaw += Math.atan2(Math.sin(ty - this.yaw), Math.cos(ty - this.yaw)) * Math.min(1, dt * 8); this.pose = 'hop'; }
     } else {
-      this.wait -= dt; this.pose = 'idle';
-      if (this.near != null && chars) { const c = chars.get(this.near); if (c) { const ty = Math.atan2(c.x - this.x, c.z - this.z); this.yaw += Math.atan2(Math.sin(ty - this.yaw), Math.cos(ty - this.yaw)) * Math.min(1, dt * 3); } }
+      this.wait -= dt; this.pose = 'idle'; this.idleT = (this.idleT || 0) + dt;
+      // 停下来：先看一眼旁边的居民，然后转过来对着镜头（脸始终在镜头这一侧看得见）
+      const c = this.near != null && chars && this.idleT < 2.5 ? chars.get(this.near) : null;
+      if (c) this.turnTo(Math.atan2(c.x - this.x, c.z - this.z), dt * 3); else this.faceCam(dt * 4);
       if (this.wait <= 0) { this.near = null; this.plan(chars, night); }
     }
-    if (night && !asleep && this.state !== 'toSleep' && this.hold <= 0) { this.plan(chars, true); }
+    if (this.path.length && !this.hold) this.idleT = 0;
+    if (this.hold > 0 || asleep) this.faceCam(dt * (this.hold > 0 ? 6 : 2)); // 被点了 / 睡着：转向镜头
+    if (night && this.state !== 'sleep' && this.state !== 'toSleep' && this.hold <= 0) { this.plan(chars, true); } // 用当前状态判断（刚走到这一帧已经睡下了，别又重新出发）
     if (this.m.pose !== this.pose) this.m.setPose(this.pose);
     this.m.update(dt, t);
-    this.g.position.set(this.x, 0, this.z); this.g.rotation.y = this.yaw + (this.state === 'sleep' ? PI / 2 : 0); // 睡觉：侧过身，歪着靠在石台上
+    this.g.position.set(this.x, 0, this.z); this.g.rotation.y = this.yaw; // 睡觉：脸朝镜头、歪着靠在石台边、闭眼
   }
+  turnTo(ty, k) { this.yaw += Math.atan2(Math.sin(ty - this.yaw), Math.cos(ty - this.yaw)) * Math.min(1, k); }
+  faceCam(k) { const c = this.camera; if (c) this.turnTo(Math.atan2(c.position.x - this.x, c.position.z - this.z), k); }
   get y() { return 0; }
   hit(camera, sx, sy, W, H) { _v.set(this.x, NUGGET_SIZE * 0.45, this.z).project(camera); if (_v.z > 1) return false; const px = (_v.x * 0.5 + 0.5) * W, py = (-_v.y * 0.5 + 0.5) * H; const dist = camera.position.distanceTo(_w.set(this.x, 1, this.z)); const rad = Math.max(30, NUGGET_SIZE * 0.75 / dist * H / (2 * Math.tan(camera.fov * PI / 360))); return Math.hypot(px - sx, py - sy) < rad; }
 }

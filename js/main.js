@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Q, LOW, IS_MOBILE, PI, clamp, lerp, smooth, initCore, MAT, DYN_EMISSIVE, METALS, rimU, timeU, globalMerge, ctex, WXU, SEASONAL } from './lib/core.js';
 import { buildSpecies, SPECIES as SPM, MAXC, makeAnimState, writeChar, headTopY } from './lib/characters.js';
-import { buildGround, buildWater, waterMat, buildAltar, buildPlaza, buildResources, buildGates, buildBackdrop, buildFlora, groundH } from './lib/environment.js';
+import { buildGround, buildWater, waterMat, buildAltar, buildPlaza, buildResources, buildGates, buildBackdrop, buildFlora, groundH, OUTER_TREES } from './lib/environment.js';
 import { Town, Roads } from './render/town.js';
 import { Props } from './render/props.js';
 import { makeThumbs } from './render/thumbs.js';
@@ -21,9 +21,10 @@ import { Interior, canEnter, warmInterior, ROOM_NAME } from './render/interior.j
 import { Worksite } from './render/worksite.js';
 import { DAY, SPECIES, WORLD_R, GATES, streamDist, CAP, STORE_POS } from './shared/layout.js';
 import { DESTS } from './shared/journey.js';
-import { ITEMS, ITEM_K, TEMPLATE_OF, TEMPLATE_KINDS, renderKindOf, placeCheck, SEEDS, goldRings, moveCheck, movable, COMBOS } from './shared/items.js';
+import { ITEMS, ITEM_K, TEMPLATE_OF, TEMPLATE_KINDS, renderKindOf, placeCheck, SEEDS, goldRings, moveCheck, movable, COMBOS, PLACE_R } from './shared/items.js';
 import { Nugget, GoldRings, NUGGET_SIZE } from './render/mascot.js';
 import { localFoot } from './shared/footprint.js';
+import { createPlayerHand, createHandShadow, HAND_LEN } from './lib/hand-model.js';
 
 const SAVE_KEY = 'lenia-garden-save-v2';
 const SNAP_STRIDE = 7, TICK_MS = 200;
@@ -58,6 +59,7 @@ const roads = new Roads(scene);
 const weather = new WeatherFX(scene);
 const cameo = new Cameo(scene, props); // Lenia 的身影（偶尔露出局部）
 const nugget = new Nugget(scene); // 鸡块：Lenia 家的白团子，常驻花园的小吉祥物
+nugget.camera = camera; // 停下、被点、睡觉时转向镜头
 const golds = new GoldRings(scene); // 放置模式的金圈
 const worksite = new Worksite(scene); // 改造中的房子：脚手架、绳子围栏、材料堆、头顶小牌子
 const interior = new Interior(scene); interior.camera = camera; // 进屋（玩具屋式掀顶）
@@ -346,11 +348,11 @@ function updateCharacters(dt, t) {
 // ---------------------------------------------------------------- 点选居民（轻点，不是拖动）
 let down = null;
 canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; if (mode.kind === 'place' || mode.kind === 'move') placeDown(e); });
-canvas.addEventListener('pointermove', (e) => { if ((mode.kind === 'place' || mode.kind === 'move') && mode.drag) placeMove(e); else if (mode.kind) mode.hover = groundAt(e.clientX, e.clientY); else if (cam.follow != null && down && (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10 || twist.pts.size > 1)) stopFollow(); });
+canvas.addEventListener('pointermove', (e) => { if ((mode.kind === 'place' || mode.kind === 'move') && (mode.drag || pinch.pts.size > 1)) placeMove(e); else if (mode.kind) mode.hover = groundAt(e.clientX, e.clientY); else if (cam.follow != null && down && (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10 || twist.pts.size > 1)) stopFollow(); });
 canvas.addEventListener('wheel', () => { if (cam.follow != null) stopFollow(); }, { passive: true });
 canvas.addEventListener('pointerup', (e) => {
   if (tank.on) { peekTank(); return; }
-  if (mode.kind === 'place' || mode.kind === 'move') { mode.drag = false; return; }
+  if (mode.kind === 'place' || mode.kind === 'move') { placeUp(e); return; }
   if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8 || performance.now() - down.t > 450) return;
   if (mode.kind === 'plant' || mode.kind === 'water') { tendTap(e); return; }
   if (interior.busy) { insideTap(e); return; }
@@ -430,28 +432,56 @@ document.getElementById('intBack').onclick = () => { if (sheetOpen) ui.close(); 
 const mode = { kind: null, item: null, x: 0, z: 0, yaw: 0, ok: false, why: '', drag: false, off: [0, 0], seed: 'daisy', hover: null, rel: 0 };
 const _ray = new THREE.Raycaster(), _plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _ndc = new THREE.Vector2(), _hit = new THREE.Vector3();
 function groundAt(sx, sy) { _ndc.set(sx / innerWidth * 2 - 1, -(sy / innerHeight) * 2 + 1); _ray.setFromCamera(_ndc, camera); return _ray.ray.intersectPlane(_plane, _hit) ? [_hit.x, _hit.z] : null; }
-const placeEl = document.getElementById('placebar'), tendEl = document.getElementById('tendbar'), hintEl = document.getElementById('placeHint'), handEl = document.getElementById('hand');
+const placeEl = document.getElementById('placebar'), tendEl = document.getElementById('tendbar'), hintEl = document.getElementById('placeHint');
 let _ps = null; // 同一份 struct 只建一次（占地、金圈都缓存在里面）
 function placeState() { if (_ps) return _ps; return (_ps = struct ? { lots: struct.lots, nodes: struct.nodes, edges: struct.edges, bridges: struct.bridges, snowmen: struct.snowmen || [], flowers: (struct.flowers || []).map(f => [f[1], f[2]]), puddles: (struct.puddles || []).map(p => [p[1], p[2], p[3], p[0]]) } : { lots: [] }); }
 function itemR(k) { const rk = renderKindOf(k); return TEMPLATE_OF[k] ? kindsMeta[rk].r : ITEM_K[rk].r; }
 function itemH(k) { const rk = renderKindOf(k); return TEMPLATE_OF[k] ? kindsMeta[rk].h : ITEM_K[rk].h; }
 function startPlace(k) {
-  endMode(); const c = groundAt(innerWidth / 2, innerHeight * 0.46) || [controls.target.x, controls.target.z];
+  endMode(false, true); const c = groundAt(innerWidth / 2, innerHeight * 0.46) || [controls.target.x, controls.target.z];
   Object.assign(mode, { kind: 'place', item: k, x: c[0], z: c[1], yaw: 0, drag: false, rel: 0 }); controls.enabled = false; userHold = 1e9; tank.on && setTank(false);
   document.body.classList.add('mode'); placeEl.classList.add('on'); const pi = document.getElementById('placeIc'); pi.dataset.ic = 'item:' + k; pi._done = null; hydrate(placeEl);
-  handEl.style.display = 'block'; handEl.style.opacity = 1; handOpen(0, true); refreshGold(); checkPlace();
+  handOn(); refreshGold(); checkPlace();
   if (!mode.ok) { const x0 = mode.x, z0 = mode.z; for (let k = 1; k < 160 && !mode.ok; k++) { const a = k * 2.4, d = Math.sqrt(k) * 2.2; mode.x = x0 + Math.cos(a) * d; mode.z = z0 + Math.sin(a) * d; checkPlace(); } if (!mode.ok) { mode.x = x0; mode.z = z0; checkPlace(); } } // 一开始就挑一块附近能放的空地
+  placeCamIn(mode.x, mode.z);
 }
-// 手：松开时拇指和食指张开（0 = 捏着，1 = 松开），用属性 transform 做个小补间
-const handThumb = document.getElementById('handThumb'), handIdx = document.getElementById('handIdx'); let handT = 0, handTimer = 0;
-function handOpen(to, now = false) {
-  const set = (v) => { handT = v; handThumb.setAttribute('transform', `rotate(${(v * 18).toFixed(1)} 32 -76)`); handIdx.setAttribute('transform', `rotate(${(-v * 16).toFixed(1)} 16 -47)`); };
-  clearInterval(handTimer); if (now) return set(to); const from = handT; let k = 0; handTimer = setInterval(() => { k++; const e = Math.min(1, k / 9); set(from + (to - from) * (1 - (1 - e) * (1 - e))); if (e >= 1) clearInterval(handTimer); }, 16);
+// 玩家的手（3D，lib/hand-model.js）：只露前臂 + 浅色针织袖子，从屏幕上方伸进来，拇指和食指捏住旧物的顶；
+// 跟着拖动平滑移动，地上有一块柔和的影子；放下时松手、往上收走。第一次进放置模式才建模型。
+const P3 = { hand: null, sh: null, on: false, leave: 0, first: true, x: 0, z: 0, opt: { armLength: 3.0, reach: -0.4, facing: 0, fade: 0.3, warm: true }, yaw: -0.6, tilt: 0.9 };
+const _ha = new THREE.Vector3(), _hb = new THREE.Vector3();
+function hand3() {
+  if (P3.hand) return P3.hand;
+  P3.hand = createPlayerHand(P3.opt); P3.sh = createHandShadow();
+  P3.hand.group.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } }); // 袖子很长，别被视锥裁掉；不往小镇上投实时阴影（下面另有一块柔和影子）
+  scene.add(P3.hand.group, P3.sh.mesh); return P3.hand;
 }
+function handOn() { const h = hand3(); P3.on = true; P3.leave = 0; P3.first = true; h.setMode('pinch', true); h.group.visible = P3.sh.mesh.visible = true; }
+function handOff() { P3.on = false; P3.leave = 0; if (P3.hand) P3.hand.group.visible = P3.sh.mesh.visible = false; }
+function handLeave() { if (!P3.hand || !P3.on) return; P3.leave = 1e-4; P3.hand.setMode('release'); }
+// 让捏住的位置正好在物件 (x, y, z)（底面中心）上；H 高、R 半径决定手的大小和两指张开多宽
+function handFollow(dt, t, x, y, z, H, R) {
+  const h = hand3(); if (!P3.on) return;
+  const k0 = 1 - Math.exp(-dt * 16); if (P3.first) { P3.x = x; P3.z = z; } else { P3.x += (x - P3.x) * k0; P3.z += (z - P3.z) * k0; }
+  const L = clamp(Math.max(H * 1.2, R * 2, camera.position.distanceTo(controls.target) * 0.045), 3.5, 11), k = L / HAND_LEN; // 手长跟着物件大小走（像人的手捏着一件旧物），俯视拉远时也不至于小到看不清
+  h.group.scale.setScalar(k); h.setGrip(H / k, clamp(R * 0.45, 0.25, 1.6) / k, clamp(R * 0.3, 0.12, 1.2) / k);
+  h.group.rotation.set(-P3.tilt * smooth(0.2, 1.1, 1.45 - Math.acos(clamp((camera.position.y - y) / camera.position.distanceTo(_hb.set(P3.x, y, P3.z)), -1, 1))), Math.atan2(camera.position.x - P3.x, camera.position.z - P3.z) + P3.yaw, 0, 'YXZ'); // 镜头越俯视，手越往前趴：手背朝上、手指朝镜头一侧捏住； 手背大致朝镜头、略侧一点，看得见拇指和食指捏着；手臂从屏幕右上方伸进来
+  h.update(P3.first ? 0 : dt, t); P3.first = false;
+  h.anchor(_ha); h.group.position.add(_hb.set(P3.x, y, P3.z).sub(_ha));
+  P3.sh.update(h, null); // 手腕下方地上一块柔和的影子（物件自己的影子在 props 里）
+  return [P3.x, P3.z];
+}
+function updateHandLeave(dt, t) { // 松手以后：手指张开，停一下，往上（远离镜头）收走
+  if (!P3.hand || !P3.on || !P3.leave) return; P3.leave += dt; const h = P3.hand; h.update(dt, t);
+  if (P3.leave > 0.3) { _ha.set(camera.position.x - h.group.position.x, 0, camera.position.z - h.group.position.z).normalize(); const sp = (P3.leave - 0.3) * 60 * dt; h.group.position.x -= _ha.x * sp * 0.5; h.group.position.z -= _ha.z * sp * 0.5; h.group.position.y += sp; }
+  P3.sh.mesh.material.opacity *= Math.exp(-dt * 4);
+  if (P3.leave > 1.3) handOff();
+}
+// 花园外圈草坪上的大树（只是背景，模拟里没有）：别把旧物放进树干里
+function treeCheck(r, x, z, rad) { if (!r.ok || r.gold) return r; for (const [tx, tz, k] of OUTER_TREES) if (Math.hypot(x - tx, z - tz) < rad + 2.4 * k) return { ok: false, why: '这里有棵大树' }; return r; }
 function checkPlace() {
-  if (mode.kind === 'move') { const l = struct && struct.lots.find(l => l.id === mode.id); const r = l ? moveCheck(l, mode.x, mode.z, mode.yaw, placeState()) : { ok: false, why: '它已经不在了' }; mode.ok = r.ok; mode.why = r.why; mode.gold1 = null;
+  if (mode.kind === 'move') { const l = struct && struct.lots.find(l => l.id === mode.id); const r = l ? treeCheck(moveCheck(l, mode.x, mode.z, mode.yaw, placeState()), mode.x, mode.z, l.r || 2) : { ok: false, why: '它已经不在了' }; mode.ok = r.ok; mode.why = r.why; mode.gold1 = null;
     hintEl.textContent = r.ok ? `${r.why}` : `不合适 · ${r.why}`; hintEl.className = 'paper ' + (r.ok ? 'good' : 'bad'); document.getElementById('placeOk').disabled = !r.ok; return; }
-  const r = placeCheck(mode.x, mode.z, itemR(mode.item), placeState(), 'item', { item: mode.item, rot: mode.yaw }); mode.ok = r.ok; mode.why = r.why; mode.gold1 = r.gold || null;
+  const r = treeCheck(placeCheck(mode.x, mode.z, itemR(mode.item), placeState(), 'item', { item: mode.item, rot: mode.yaw }), mode.x, mode.z, itemR(mode.item)); mode.ok = r.ok; mode.why = r.why; mode.gold1 = r.gold || null;
   const tip = mode.gold && mode.gold.length && !r.gold ? '（放进金圈会有惊喜）' : '';
   hintEl.textContent = r.gold ? '✨ 放进金圈会有惊喜！' : r.ok ? `放这里吧 · ${r.why}${tip}` : `不合适 · ${r.why}${tip}`; hintEl.className = 'paper ' + (r.ok ? 'good' : 'bad'); document.getElementById('placeOk').disabled = !r.ok; }
 // 金圈：手里这件能和地上哪件拼（位置由 shared/items.js 的 goldRings 算，和 Worker 落地拼合用同一个函数）
@@ -465,41 +495,83 @@ function refreshGold() {
 // 挪一挪 / 搬家：拎起已经放下的东西（同放置模式：绿/红、转一转、放这里）
 function startMove(id) {
   const l = struct && struct.lots.find(l => l.id === id); const mv = movable(l); if (!mv.ok) { mode.tap = null; floatText(mv.why); return false; }
-  exitInterior(true); endMode(); stopFollow(); closeThought();
+  exitInterior(true); endMode(false, true); stopFollow(); closeThought();
   Object.assign(mode, { kind: 'move', id, item: l.item, rk: l.rk, x: l.x, z: l.z, yaw: l.rot, drag: false, lift: 0, done: l.done, lot: l, gold: [] });
   controls.enabled = false; userHold = 1e9; tank.on && setTank(false); town.hideId = props.hideId = id;
   document.body.classList.add('mode'); placeEl.classList.add('on'); const pi = document.getElementById('placeIc'); pi.dataset.ic = l.combo ? 'item:combo_' + l.combo : l.item && ITEMS[l.item] ? 'item:' + l.item : 'hand'; pi._done = null; hydrate(placeEl);
   document.querySelector('#placeOk + .lbl').textContent = l.done ? '搬到这' : '挪到这'; document.querySelector('#placeNo + .lbl').textContent = '不挪了';
-  handEl.style.display = 'block'; handEl.style.opacity = 1; handOpen(0, true); checkPlace();
+  handOn(); checkPlace();
   if (l.done) send({ type: 'lenia', act: 'movePrep', id }); // 住户/店主先嘀咕一句
-  focusAt(l.x, l.z, 34); return true;
+  placeCamIn(l.x, l.z); return true;
 }
 
-function placeDown(e) { const g = groundAt(e.clientX, e.clientY); if (!g) return; _v.set(mode.x, 0, mode.z).project(camera); const sx = (_v.x * 0.5 + 0.5) * innerWidth, sy = (-_v.y * 0.5 + 0.5) * innerHeight; const near = Math.hypot(sx - e.clientX, sy - e.clientY) < 140; mode.drag = true; mode.off = near ? [sx - e.clientX, sy - e.clientY] : [0, -50]; placeMove(e); }
-function placeMove(e) { const g = groundAt(e.clientX + mode.off[0], e.clientY + mode.off[1]); if (!g) return; const R = Math.hypot(g[0], g[1]); const k = R > 80 ? 80 / R : 1; mode.x = g[0] * k; mode.z = g[1] * k; checkPlace(); }
+// 放置/挪动时的镜头：自动平滑拉高拉远成俯视大视野（看得到大半个花园）；放下/取消后平滑回到进入前的视角
+const placeCam = { saved: null };
+function placeCamIn(x, z) {
+  if (!placeCam.saved) placeCam.saved = { pos: camera.position.clone(), target: controls.target.clone() };
+  const off = camera.position.clone().sub(controls.target); const azi = Math.atan2(off.x, off.z), pol = 0.52;
+  const vf = camera.fov * PI / 360, hf = Math.atan(Math.tan(vf) * camera.aspect); // 竖屏看宽 ~70，横屏看纵深 ~60
+  const dist = clamp(Math.max(35 / Math.tan(hf), 30 / Math.tan(vf) / Math.cos(pol)), 70, 175);
+  const R = Math.hypot(x, z), kk = R > 40 ? 40 / R : 1, tx = x * kk, tz = z * kk; // 对准手里的旧物；太靠外时往花园中间收一点，大半个花园都在画面里
+  cam.fly = { t: 0, dur: 0.85, p0: camera.position.clone(), t0: controls.target.clone(), p1: new THREE.Vector3(tx + Math.sin(pol) * Math.sin(azi) * dist, Math.cos(pol) * dist, tz + Math.sin(pol) * Math.cos(azi) * dist), t1: new THREE.Vector3(tx, 0, tz) };
+  cam.follow = null;
+}
+function placeCamOut(drop) {
+  const S = placeCam.saved; placeCam.saved = null; if (!S) return; const p1 = S.pos.clone(), t1 = S.target.clone();
+  if (drop) { _v.set(drop.x, groundY(drop.x, drop.z), drop.z); const tmp = camera.clone(); tmp.position.copy(p1); tmp.lookAt(t1); tmp.updateMatrixWorld(); _v.project(tmp); // 放下的地方在原来的视角里看不见：原角度、原距离，挪过去对准它
+    if (Math.abs(_v.x) > 0.8 || Math.abs(_v.y) > 0.75 || _v.z > 1) { const d = _bp.set(drop.x, t1.y, drop.z).sub(t1); p1.add(d); t1.add(d); } }
+  cam.fly = { t: 0, dur: 0.9, p0: camera.position.clone(), t0: controls.target.clone(), p1, t1 };
+}
+// 双指缩放（放置模式里 OrbitControls 关着，自己处理）+ 滚轮
+const pinch = { pts: new Map(), d0: 0, dist0: 0 };
+const pinchD = () => { const [a, b] = [...pinch.pts.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]) || 1; };
+function placeZoom(d) { cam.fly = null; const off = camera.position.clone().sub(controls.target); off.setLength(clamp(d, 24, 200)); camera.position.copy(controls.target).add(off); }
+function placeDown(e) {
+  if (e.pointerType === 'touch') pinch.pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pinch.pts.size >= 2) { mode.drag = false; mode.px = null; pinch.d0 = pinchD(); pinch.dist0 = camera.position.distanceTo(controls.target); return; }
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 有的浏览器不支持就算了 */ }
+  const g = groundAt(e.clientX, e.clientY); if (!g) return; _v.set(mode.x, 0, mode.z).project(camera); const sx = (_v.x * 0.5 + 0.5) * innerWidth, sy = (-_v.y * 0.5 + 0.5) * innerHeight; const near = Math.hypot(sx - e.clientX, sy - e.clientY) < 140; mode.drag = true; mode.off = near ? [sx - e.clientX, sy - e.clientY] : [0, -50]; placeMove(e); }
+function placeMove(e) {
+  if (pinch.pts.has(e.pointerId)) pinch.pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pinch.pts.size >= 2) { placeZoom(pinch.dist0 * pinch.d0 / pinchD()); return; }
+  mode.px = e.clientX; mode.py = e.clientY;
+  const g = groundAt(e.clientX + mode.off[0], e.clientY + mode.off[1]); if (!g) return; const R = Math.hypot(g[0], g[1]); const k = R > PLACE_R ? PLACE_R / R : 1; mode.x = g[0] * k; mode.z = g[1] * k; checkPlace(); }
+function placeUp(e) { pinch.pts.delete(e.pointerId); if (pinch.pts.size < 2) pinch.d0 = 0; mode.drag = false; mode.px = null; }
+canvas.addEventListener('pointercancel', (e) => { if (mode.kind === 'place' || mode.kind === 'move') placeUp(e); });
+canvas.addEventListener('wheel', (e) => { if (mode.kind !== 'place' && mode.kind !== 'move') return; placeZoom(camera.position.distanceTo(controls.target) * Math.exp(e.deltaY * 0.0012)); }, { passive: true });
+// 边缘滚动：拖着旧物靠近屏幕边缘（12% 以内），地图往那边平移，越靠边越快；旧物一直在指尖下
+const EDGE = 0.12;
+const edgeK = (u) => u < EDGE ? -(EDGE - u) / EDGE : u > 1 - EDGE ? (u - 1 + EDGE) / EDGE : 0;
+function edgeScroll(dt) {
+  if (!mode.drag || mode.px == null || cam.fly) return;
+  const ex = edgeK(mode.px / innerWidth), ey = edgeK(mode.py / innerHeight); if (!ex && !ey) return;
+  const off = camera.position.clone().sub(controls.target); const fx = -off.x, fz = -off.z, fl = Math.hypot(fx, fz) || 1; // 屏幕“上”在地上的方向
+  const sp = off.length() * 0.4 * dt; const dx = (-fz / fl * ex - fx / fl * ey) * sp, dz = (fx / fl * ex - fz / fl * ey) * sp;
+  const nx = controls.target.x + dx, nz = controls.target.z + dz, R = Math.hypot(nx, nz), lim = PLACE_R - 6, k = R > lim ? lim / R : 1;
+  const mx = nx * k - controls.target.x, mz = nz * k - controls.target.z; if (Math.abs(mx) + Math.abs(mz) < 1e-5) return;
+  controls.target.x += mx; controls.target.z += mz; camera.position.x += mx; camera.position.z += mz; camera.updateMatrixWorld();
+  placeMove({ pointerId: -1, clientX: mode.px, clientY: mode.py });
+}
 let moveWait = null; // 搬家/挪动已经发给模拟、等新位置回来：原物继续藏着，回来后在新位置“落下”
 function landMoved(id) { for (const L of [town.lots.get(id), props.lots.get(id)]) if (L) { L.x = L.lx; L.z = L.lz; L.yaw = L.rot; L.fall = 1; } }
-function endMode(keepHand = false) {
+function endMode(keepHand = false, switching = false, drop = null) {
   if (mode.kind === 'move' && !moveWait) { town.hideId = props.hideId = -1; }
+  if ((mode.kind === 'place' || mode.kind === 'move') && !switching) placeCamOut(drop); pinch.pts.clear(); mode.drag = false; mode.px = null;
   mode.kind = null; controls.enabled = true; userHold = 2; document.body.classList.remove('mode'); placeEl.classList.remove('on'); tendEl.classList.remove('on');
-  town.ghost = null; props.setGhost(null); if (!keepHand) handEl.style.display = 'none'; mode.gold = []; golds.set([]); goldsEl.innerHTML = '';
+  town.ghost = null; props.setGhost(null); if (!keepHand) handOff(); mode.gold = []; golds.set([]); goldsEl.innerHTML = '';
   document.querySelector('#placeOk + .lbl').textContent = '放这里'; document.querySelector('#placeNo + .lbl').textContent = '放回去';
 }
 document.getElementById('placeNo').onclick = () => endMode();
 document.getElementById('placeRot').onclick = () => { mode.yaw += Math.PI / 4; checkPlace(); }; // 转一转占地也跟着转，重新查一次
 document.getElementById('placeOk').onclick = () => {
   if (mode.kind === 'move') { checkPlace(); if (!mode.ok) return; const id = mode.id; moveWait = { id, x: mode.x, z: mode.z, t: performance.now() };
-    send({ type: 'lenia', act: 'move', id, x: mode.x, z: mode.z, rot: mode.yaw }); endMode(true); handOpen(1);
-    handEl.animate([{ transform: 'translate(0,0)', opacity: 1 }, { transform: 'translate(0,8px)', opacity: 1, offset: 0.2 }, { transform: 'translate(50px,-240px) rotate(8deg)', opacity: 0 }], { duration: 950, easing: 'ease-in' }).onfinish = () => { handEl.style.display = 'none'; };
+    send({ type: 'lenia', act: 'move', id, x: mode.x, z: mode.z, rot: mode.yaw }); endMode(true, false, { x: mode.x, z: mode.z }); handLeave();
     setTimeout(() => { if (moveWait && moveWait.id === id) { moveWait = null; town.hideId = props.hideId = -1; } }, 4000); return; }
   if (mode.kind !== 'place') return; checkPlace(); if (!mode.ok) return;
   if (mode.gold1) { mode.x = mode.gold1.x; mode.z = mode.gold1.z; mode.yaw = mode.gold1.rot; } // 放进金圈：对齐圈心
   const d = { x: mode.x, z: mode.z, t: performance.now() }; town.pendingDrop = props.pendingDrop = d;
   send({ type: 'lenia', act: 'drop', item: mode.item, x: mode.x, z: mode.z, rot: mode.yaw });
-  const hand = { x: parseFloat(handEl.style.left), y: parseFloat(handEl.style.top) }; endMode(true);
-  handOpen(1);
-  handEl.animate([{ transform: 'translate(0,0) rotate(0deg)', opacity: 1 }, { transform: 'translate(-3px,7px) rotate(1deg)', opacity: 1, offset: 0.16 }, { transform: 'translate(6px,-10px) rotate(-5deg)', opacity: 1, offset: 0.42 }, { transform: 'translate(60px,-260px) rotate(8deg)', opacity: 0 }], { duration: 1050, easing: 'ease-in' }).onfinish = () => { handEl.style.display = 'none'; };
-  setTimeout(() => focusAt(d.x, d.z, 30), 700);
+  endMode(true, false, d); handLeave();
 };
 // 打理花园：选花种 → 点空地种下；拿水壶 → 点花浇水
 function startTend(m = null, seed = null) {
@@ -523,23 +595,18 @@ function updateMode(dt, t) {
   if (mode.kind === 'move') { // 拎起来：原物藏起，手捏着它的“影子”悬在半空跟着走
     const l = mode.lot; mode.lift = Math.min(1, mode.lift + dt * 2); const e = 1 - (1 - mode.lift) ** 3; const h = e * (4.2 + Math.sin(t * 2) * 0.25); const [H, r] = lotHR(l);
     const tmpl = TEMPLATE_KINDS.has(l.kind);
-    town.ghost = tmpl ? { kind: l.rk, x: mode.x, z: mode.z, y: 0, h, yaw: mode.yaw } : null;
-    props.setGhost({ kind: l.use === 'bridge' ? 'bridge_' + l.kind : l.kind, x: mode.x, z: mode.z, yaw: mode.yaw, h, r: l.r, ok: mode.ok, t, show: !tmpl, foot: localFoot(l).box });
-    _v.set(mode.x, h + H * 0.92, mode.z); _v.project(camera); const sx = (_v.x * 0.5 + 0.5) * innerWidth, sy = (-_v.y * 0.5 + 0.5) * innerHeight;
-    const W = clamp(innerWidth * 0.42, 140, 220); handEl.style.width = W + 'px'; handEl.style.height = W * 260 / 200 + 'px'; handEl.style.left = (sx - W * 70 / 200) + 'px'; handEl.style.top = (sy - W * 200 / 200) + 'px'; void r;
+    const [mx, mz] = handFollow(dt, t, mode.x, h, mode.z, H, r) || [mode.x, mode.z]; // 手捏着它平滑跟随拖动
+    town.ghost = tmpl ? { kind: l.rk, x: mx, z: mz, y: 0, h, yaw: mode.yaw } : null;
+    props.setGhost({ kind: l.use === 'bridge' ? 'bridge_' + l.kind : l.kind, x: mx, z: mz, yaw: mode.yaw, h, r: l.r, ok: mode.ok, t, show: !tmpl, foot: localFoot(l).box });
     return; }
   if (mode.kind !== 'place') { if (mode.kind && mode.hover) props.setGhost({ kind: 'flower', x: mode.hover[0], z: mode.hover[1], yaw: 0, h: 0, r: mode.kind === 'water' ? 3.2 : 0.5, ok: true, t, show: false }); return; }
   const k = mode.item, rk = renderKindOf(k), r = itemR(k), H = itemH(k); const h = 4.2 + Math.sin(t * 2) * 0.25; const tmpl = !!TEMPLATE_OF[k];
-  const G = mode.gold1; const gx = G ? G.x : mode.x, gz = G ? G.z : mode.z, gy = G ? G.rot : mode.yaw; // 进了金圈：影子吸到圈心
+  const G = mode.gold1; const gy = G ? G.rot : mode.yaw; // 进了金圈：影子吸到圈心
+  const [gx, gz] = handFollow(dt, t, G ? G.x : mode.x, h, G ? G.z : mode.z, H, r) || [G ? G.x : mode.x, G ? G.z : mode.z]; // 手捏着它平滑跟随拖动
   town.ghost = tmpl ? { kind: rk, x: gx, z: gz, y: 0, h, yaw: gy } : null;
   props.setGhost({ kind: rk, x: gx, z: gz, yaw: gy, h, r, ok: mode.ok, t, show: !tmpl, foot: localFoot({ kind: rk, item: k, r, stage: 'landed' }).box, marker: !G });
   for (const g of mode.gold || []) g.hot = G && G.id === g.id;
   const labs = goldsEl.children; (mode.gold || []).forEach((g, i) => { const el = labs[i]; if (!el) return; _v.set(g.x, 0.3, g.z).project(camera); el.style.display = _v.z > 1 ? 'none' : ''; el.style.left = ((_v.x * 0.5 + 0.5) * innerWidth).toFixed(0) + 'px'; el.style.top = ((-_v.y * 0.5 + 0.5) * innerHeight).toFixed(0) + 'px'; });
-  // 手：指尖捏在旧物顶上
-  _v.set(gx, h + H * 0.92, gz);
-  _v.project(camera); const sx = (_v.x * 0.5 + 0.5) * innerWidth, sy = (-_v.y * 0.5 + 0.5) * innerHeight;
-  const W = clamp(innerWidth * 0.42, 140, 220); handEl.style.width = W + 'px'; handEl.style.height = W * 260 / 200 + 'px';
-  handEl.style.left = (sx - W * 70 / 200) + 'px'; handEl.style.top = (sy - W * 200 / 200) + 'px';
 }
 // 居民头顶的气泡（围观 ？！、哼歌 ♪、聊天 …、找材料 ？……）：全部走 bubble.js 这一个公用函数，样式统一，只换中间的符号。
 // 点气泡或点冒着气泡的居民 → 弹出“心声”（见 openThought）
@@ -710,7 +777,7 @@ addEventListener('pagehide', () => send({ type: 'save', reason: 'hide' }));
 function step(dt) {
   simT += dt; timeU.value = simT;
   const simNow = updateWorld(dt); dayT = (dayT + dt * speed / DAY) % 1; applyTime(dayT);
-  interpolate(dt); separate(dt); cameoLook(dt); updateCharacters(dt, simT); updateMode(dt, simT); town.update(dt, simT, chars, camera); props.update(dt, simT, camera); worksite.update(dt, simT, siteList()); interior.update(dt, simT, info, smooth(0.35, 0.8, NIGHT)); if (interior.busy) renderWho(); updateEmos(dt);
+  interpolate(dt); separate(dt); cameoLook(dt); updateCharacters(dt, simT); edgeScroll(dt); updateMode(dt, simT); updateHandLeave(dt, simT); town.update(dt, simT, chars, camera); props.update(dt, simT, camera); worksite.update(dt, simT, siteList()); interior.update(dt, simT, info, smooth(0.35, 0.8, NIGHT)); if (interior.busy) renderWho(); updateEmos(dt);
   const sw = seaS.w, nightK = smooth(0.35, 0.8, NIGHT); _wc.copy(hemi.color).multiplyScalar(hemi.intensity / 1.2 * 0.75).add(_sa.copy(sun.color).multiplyScalar(sun.intensity / 3.3 * 0.35));
   weather.setDensity((LOW ? 0.5 : 1) * (tank.on ? 0.6 : 1) * (interior.busy ? 0.25 : 1)); // 手机减半，鱼缸再减；进屋时屋顶开着，雨雪少一点
   weather.update(dt, simT, camera, controls.target, { rain: wxS.rain, snow: wxS.snow, petals: sw[0] * seaS.bloom * (1 - wxS.rain) * 0.55, leaves: sw[2] * smooth(0.15, 0.8, seaS.si === 2 ? seaS.f : 1) * (1 - wxS.rain * 0.6) * 0.8,
@@ -781,6 +848,6 @@ window.__ng = {
   placeAt(x, z, yaw = 0) { mode.x = x; mode.z = z; mode.yaw = yaw; checkPlace(); return { ok: mode.ok, why: mode.why }; },
   confirmPlace() { document.getElementById('placeOk').click(); },
   lenia(m) { send({ type: 'lenia', ...m }); },
-  lenia, audio, cameo, startCameo, nugget, golds, startMove, startFollow, stopFollow, nuggetTap, cameoTap, get moveWait() { return moveWait; }, cam, get loadDone() { return loadDone; }, bubbles, openThought, closeThought, gateList, gateNew, pickGate,
+  lenia, audio, cameo, startCameo, nugget, golds, startMove, startFollow, stopFollow, nuggetTap, cameoTap, get moveWait() { return moveWait; }, get hand3d() { return P3.hand; }, handTune(opt, yaw, tilt) { if (tilt != null) P3.tilt = tilt; if (P3.hand) { scene.remove(P3.hand.group, P3.sh.mesh); P3.hand = null; } Object.assign(P3.opt, opt || {}); if (yaw != null) P3.yaw = yaw; if (mode.kind) handOn(); }, cam, get loadDone() { return loadDone; }, bubbles, openThought, closeThought, gateList, gateNew, pickGate,
   weather, wxS, seaS, setWeather(k, cover = null, wet = null) { send({ type: 'weather', k, cover, wet }); }, tripNow() { send({ type: 'tripNow' }); }, give(item, n = 1) { send({ type: 'give', item, n }); },
 };

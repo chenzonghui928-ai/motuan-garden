@@ -1,6 +1,6 @@
 // 「你和 Lenia 一起照顾小动物」：储物箱旧物、用途、组合、回礼、花种、小镇愿望、摆放检查。纯数据 + 纯数学，主线程与 Worker 共用。
 // 载入时会把新物件的尺寸 / 拖运人数 / 床位 / 名字补进 layout.js 的共享表（TEAM、CAP、KIND_DEFAULT、OBJ_NAME、SHOP），sim-core 原有流程直接可用。
-import { TEAM, CAP, KIND_DEFAULT, OBJ_NAME, SHOP, STREAM, streamDist, segDist, WORLD_R, PLAZA_R } from './layout.js';
+import { TEAM, CAP, KIND_DEFAULT, OBJ_NAME, SHOP, STREAM, streamDist, segDist, WORLD_R, PLAZA_R, EDGE_R } from './layout.js';
 import { footOf, circleFoot, prepFit, fitCheck, bodyGap, COMBO_GAP } from './footprint.js';
 
 // 房子造型（程序化模板）对应的旧物；其余旧物由 render/props.js 画
@@ -192,12 +192,13 @@ export function streamSide(x, z) { // 找最近线段，用叉积判断在哪一
   const a = S0[bi], b = S0[bi + 1]; return Math.sign((b[0] - a[0]) * (z - a[1]) - (b[1] - a[1]) * (x - a[0])) || 1;
 }
 export const TOWN_SIDE = streamSide(0, 0);
-export const PLACE_R = WORLD_R + 4; // 再远就拖不动了
+export const TOWN_R = WORLD_R + 4;  // 小镇范围；再往外是花园外圈的草坪（也能放，只是要拖好一阵子）
+export const PLACE_R = EDGE_R + 12; // 花园草坪的外沿（再往外是远处的大树、巨型雏菊和白栅栏）
 // st: { lots:[lot], nodes:[[x,z,k]], edges:[[a,b,d]], bridges:n, flowers:[[x,z]], puddles:[[x,z,r,id]], snowmen? }
 // cand: { item, rot } —— 放旧物时传上，按这件东西所有可能样子的真实占地（js/shared/footprint.js）检查；不传就当成半径 r 的小圆（花、水洼、雪人）
 function groundCheck(x, z, st, kind) { // 不看占地的基本条件：太远、水里、对岸没桥、祭坛广场
   const R0 = Math.hypot(x, z);
-  if (R0 > PLACE_R) return { ok: false, why: '离小镇太远了，大家拖不动' };
+  if (R0 > PLACE_R) return { ok: false, why: '再往外就出了花园草坪啦' };
   const sd = streamDist(x, z);
   if (sd < 3.3) return { ok: false, why: '这里是水里' };
   if (streamSide(x, z) !== TOWN_SIDE && !(st.bridges > 0)) return { ok: false, why: '在小溪对岸，还没有桥过不去' };
@@ -243,6 +244,7 @@ export function placeCheck(x, z, r, st, kind = 'item', cand = null) {
   const fc = fitCheck(F, ctx, kind === 'flower' ? { flower: true } : { water: 2.4, plaza: 0.6, rsc: 0.6, road: 0.3 });
   if (!fc.ok) return fc;
   if (pd) return { ok: true, why: '放进水洼里，也许会变成小池塘、小船或码头', puddle: pd[3] };
+  if (Math.hypot(x, z) > TOWN_R) return { ok: true, why: '有点远，它们要拖好一阵子', far: true };
   return { ok: true, why: sd < 9 ? '溪边，可能会有水边的用法' : '可以放在这里' };
 }
 
@@ -260,9 +262,10 @@ export function movable(l) {
 export function moveCheck(l, x, z, rot, st) {
   const m = movable(l); if (!m.ok) return m;
   const g0 = groundCheck(x, z, st, 'item'); if (g0) return g0;
+  if (l.done && Math.hypot(x, z) > TOWN_R) return { ok: false, why: '搬出小镇太远了，离开小路大家没法串门' };
   if (!l.pond && (st.puddles || []).some(p => Math.hypot(x - p[0], z - p[1]) < p[2] + 0.3)) return { ok: false, why: '这里是一汪水洼' };
   const ctx = st.fit || (st.fit = prepFit(st));
   const fc = fitCheck(footOf({ ...l, x, z, rot }), ctx, { ignore: new Set([l.id]), skipNode: l.node >= 0 ? l.node : null, water: 2.4, plaza: 0.6, rsc: 0.6, road: 0.3 });
   if (!fc.ok) return fc;
-  return { ok: true, why: l.done ? '搬到这里吧' : '挪到这里吧' };
+  return { ok: true, why: l.done ? '搬到这里吧' : Math.hypot(x, z) > TOWN_R ? '有点远，它们要拖好一阵子' : '挪到这里吧' };
 }

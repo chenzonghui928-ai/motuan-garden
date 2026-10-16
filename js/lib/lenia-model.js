@@ -80,7 +80,7 @@ export function leniaMaterials() {
     water: std('#bfe3ff', { r: 0.1, tr: true, em: '#8cc8ff', ei: 0.25 }),
     box: std('#c99a62', { r: 0.95 }), boxTape: std('#e3c590', { r: 0.6 }),
     wood: std('#b88350', { r: 0.85 }),
-    nugget: std('#f3e5cf', { r: 0.62, rim: 0.45, em: '#40200c', ei: 0.04 }),
+    nugget: std('#ffeacb', { r: 0.72, rim: 0.7, em: '#c08a58', ei: 0.48 }), // 奶白暖色：带一点暖色自发光（像次表面透光），阴影里也不发灰
     nuggetFace: std('#3a2117', { r: 0.28, rim: 0.1 }),
     seed: std('#8a5a33', { r: 0.6 }),
   };
@@ -492,10 +492,10 @@ export function createNugget() {
   const g = sph(32, 22); const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const h = (y + 1) / 2; const wk = 1 + 0.16 * (1 - h) - 0.12 * h * h;
+    const h = (y + 1) / 2; const wk = 1 + 0.16 * (1 - h) - 0.24 * h * h * h; // 上窄下宽：圆角饭团一样的圆顶
     if (y < -0.5) y = -0.5 + (y + 0.5) * 0.18;
-    x = x * 0.78 * wk - 0.24 * h * h * (1 - 0.3 * Math.abs(x)) ; z = z * 0.6 * wk;
-    p.setXYZ(i, x, y * 0.74, z);
+    x = x * 0.8 * wk - 0.22 * h * h * (1 - 0.3 * Math.abs(x)); z = z * 0.7 * wk;
+    p.setXYZ(i, x, y * 0.72, z); // 比官方三视图再矮胖一点：游戏镜头俯视 + 广角会把它拉高
   }
   g.computeVertexNormals(); g.computeBoundingBox();
   { const b = g.boundingBox; const H = b.max.y - b.min.y; g.translate(-(b.max.x + b.min.x) / 2, -b.min.y, 0); g.scale(1 / H, 1 / H, 1 / H); }
@@ -507,34 +507,36 @@ export function createNugget() {
   // 脸：射线找表面，贴两颗深棕椭圆眼 + 小微笑
   const rc = new THREE.Raycaster(); const tmp = new THREE.Mesh(g, M.nugget); tmp.updateMatrixWorld();
   const surf = (x, y) => { rc.set(new THREE.Vector3(x, y, 5), new THREE.Vector3(0, 0, -1)); const h = rc.intersectObject(tmp)[0]; return h ? { p: h.point, n: h.face.normal.clone() } : { p: new THREE.Vector3(x, y, 0.4), n: new THREE.Vector3(0, 0, 1) }; };
-  const q = new THREE.Quaternion(); const eyes = [];
+  const q = new THREE.Quaternion(); const eyes = [], shut = [];
   for (const s of [-1, 1]) {
-    const S = surf(s * 0.24, 0.6); const e = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 9), M.nuggetFace);
-    e.position.copy(S.p).addScaledVector(S.n, -0.006); q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), S.n); e.quaternion.copy(q); e.scale.set(0.05, 0.075, 0.025); body.add(e); eyes.push(e);
+    const S = surf(s * 0.25, 0.46); const e = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 9), M.nuggetFace);
+    e.position.copy(S.p).addScaledVector(S.n, -0.006); q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), S.n); e.quaternion.copy(q); e.scale.set(0.05, 0.074, 0.026); body.add(e); eyes.push(e);
+    // 闭眼：一道往下弯的小弧（睡觉时换上）
+    const c = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 14, PI * 0.8), M.nuggetFace); c.position.copy(S.p).addScaledVector(S.n, 0.002); c.quaternion.copy(q); c.rotateZ(PI + PI * 0.1); c.scale.set(1, 0.6, 1); c.visible = false; body.add(c); shut.push(c);
   }
-  const ms = surf(0, 0.5); const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.011, 6, 16, PI * 0.8), M.nuggetFace);
+  const ms = surf(0, 0.35); const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.011, 6, 16, PI * 0.8), M.nuggetFace);
   mouth.position.copy(ms.p).addScaledVector(ms.n, -0.002); mouth.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), ms.n); mouth.rotateZ(PI + PI * 0.1); mouth.scale.set(1, 0.7, 1); body.add(mouth);
   for (const a of [0, PI * 0.8]) { const cap = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), M.nuggetFace); cap.position.set(Math.cos(a) * 0.055, Math.sin(a) * 0.055, 0); mouth.add(cap); } // 嘴角圆头
   // 小圆手（捧东西时才出现）+ 一颗种子
   const hands = new THREE.Group(); body.add(hands);
-  for (const s of [-1, 1]) { const S = surf(s * 0.16, 0.26); const hm = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 8), M.nugget); hm.position.copy(S.p).add(new THREE.Vector3(0, 0, 0.03)); hm.scale.set(1, 0.85, 0.9); hm.castShadow = true; hands.add(hm); }
-  const seed = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), M.seed); const S0 = surf(0, 0.3); seed.position.copy(S0.p).add(new THREE.Vector3(0, 0.03, 0.07)); seed.scale.set(0.8, 1.1, 0.8); seed.castShadow = true; hands.add(seed);
+  for (const s of [-1, 1]) { const S = surf(s * 0.17, 0.2); const hm = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 8), M.nugget); hm.position.copy(S.p).add(new THREE.Vector3(0, 0, 0.03)); hm.scale.set(1, 0.85, 0.9); hm.castShadow = true; hands.add(hm); }
+  const seed = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), M.seed); const S0 = surf(0, 0.22); seed.position.copy(S0.p).add(new THREE.Vector3(0, 0.03, 0.07)); seed.scale.set(0.8, 1.1, 0.8); seed.castShadow = true; hands.add(seed);
   const cur = { y: 0, sy: 1, sx: 1, rz: 0, rx: 0, hand: 0, eye: 1 }; const N = { pose: 'idle', blink: 3, first: true };
   const api = {
-    group, height: NUGGET_H, get pose() { return N.pose; },
+    group, height: NUGGET_H, get pose() { return N.pose; }, get asleep() { return N.pose === 'lean'; },
     setPose(name, instant = false) { if (!NUGGET_POSES.includes(name)) throw new Error('未知姿势 ' + name); N.pose = name; if (instant) N.first = true; },
     update(dt, t) {
       const tg = { y: 0, sy: 1, sx: 1, rz: 0, rx: 0, hand: 0, eye: 1 };
       if (N.pose === 'idle') { const b = Math.sin(t * 2.6); tg.sy = 1 + 0.035 * b; tg.sx = 1 - 0.02 * b; tg.y = 0.01 * Math.max(0, Math.sin(t * 1.3 - 1)) ** 8; }
-      else if (N.pose === 'hop') { const ph = (t * 1.6) % 1; const air = ph < 0.62 ? Math.sin(ph / 0.62 * PI) : 0; const land = ph >= 0.62 ? Math.sin((ph - 0.62) / 0.38 * PI) : 0; tg.y = air * 0.55; tg.sy = 1 + 0.12 * air - 0.2 * land; tg.sx = 1 - 0.06 * air + 0.12 * land; tg.rx = -0.12 * air; }
+      else if (N.pose === 'hop') { const ph = (t * 1.6) % 1; const air = ph < 0.62 ? Math.sin(ph / 0.62 * PI) : 0; const land = ph >= 0.62 ? Math.sin((ph - 0.62) / 0.38 * PI) : 0; tg.y = air * 0.5; tg.sy = 1 + 0.06 * air - 0.18 * land; tg.sx = 1 - 0.03 * air + 0.1 * land; tg.rx = -0.1 * air; } // 跳起来只拉长一点点，别变成竖着的蛋
       else if (N.pose === 'hold') { tg.hand = 1; tg.rx = -0.12; tg.sy = 1 + 0.02 * Math.sin(t * 3); }
-      else if (N.pose === 'lean') { tg.rz = 0.28; tg.sy = 0.93; tg.sx = 1.04; tg.eye = 0.15 + 0.85 * (Math.sin(t * 0.4) > 0.6 ? 1 : 0); }
+      else if (N.pose === 'lean') { tg.rz = 0.2; const br = Math.sin(t * 1.3); tg.sy = 0.93 + 0.025 * br; tg.sx = 1.04 - 0.012 * br; tg.eye = 0; } // 睡觉：歪着、慢慢呼吸，闭眼
       N.blink -= dt; if (N.blink < -0.12) N.blink = 2 + Math.random() * 3;
       const k = N.first ? 1 : 1 - Math.exp(-dt * (N.pose === 'hop' ? 30 : 8)); N.first = false;
       for (const key of Object.keys(cur)) cur[key] = lerp(cur[key], tg[key], k);
       body.position.y = cur.y; body.scale.set(cur.sx, cur.sy, cur.sx); body.rotation.set(cur.rx, 0, cur.rz);
       hands.visible = cur.hand > 0.05; hands.scale.setScalar(Math.max(cur.hand, 0.001));
-      const ey = (N.blink < 0 ? 0.12 : 1) * cur.eye; for (const e of eyes) e.scale.y = 0.075 * Math.max(ey, 0.1);
+      const ey = (N.blink < 0 ? 0.12 : 1) * cur.eye; const closed = cur.eye < 0.3; for (const e of eyes) { e.visible = !closed; e.scale.y = 0.074 * Math.max(ey, 0.1); } for (const c of shut) c.visible = closed;
     },
   };
   api.update(0, 0); api.tris = triCount(group);

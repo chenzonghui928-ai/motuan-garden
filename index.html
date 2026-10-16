@@ -212,9 +212,6 @@
   #tendbar .seedpk.on{outline:3px solid var(--tomato);outline-offset:2px;transform:translateY(-4px)}
   #tendbar .seedpk i{width:30px;height:30px;border-radius:50%}
   #tendbar .seedpk small{position:absolute;right:-6px;top:-6px;background:#fff6dc;border-radius:9px;min-width:18px;height:18px;line-height:18px;font-size:13px;box-shadow:0 1px 0 rgba(0,0,0,.3)}
-  #hand{position:fixed;left:0;top:0;width:180px;height:234px;z-index:2;pointer-events:none;display:none;transform-origin:20% 10%;transition:opacity .4s;overflow:visible}
-  #handBob{animation:hbob 2.6s ease-in-out infinite alternate}
-  @keyframes hbob{from{transform:translate(0,0)}to{transform:translate(0,-3px)}}
   /* 愿望清单：晾绳 + 木夹 + 纸签 */
   .shed{margin:0;padding:22px 10px calc(var(--safe-b) + 16px);border-radius:20px 20px 0 0;background:linear-gradient(180deg,rgba(255,244,220,.72),rgba(250,236,205,.9));-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);box-shadow:0 -6px 24px rgba(60,30,10,.25)}
   .shed .beam{position:absolute;left:0;right:0;top:0;height:18px;border-radius:20px 20px 0 0}
@@ -542,29 +539,6 @@
   </div>
 </div>
 <div id="tendbar"><div class="bar wood" id="tendInner"></div></div>
-<svg id="hand" viewBox="0 0 200 260"><defs>
-  <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9d6"/><stop offset=".6" stop-color="#f8cfb2"/><stop offset="1" stop-color="#eeb894"/></linearGradient>
-  <linearGradient id="skinF" x1="0" y1="-50" x2="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f6c9aa"/><stop offset=".55" stop-color="#ffe2cc"/><stop offset="1" stop-color="#f7c6a6"/></linearGradient>
-  <pattern id="knit" width="10" height="12" patternUnits="userSpaceOnUse"><rect width="10" height="12" fill="#e6edf1"/><path d="M1 0l4 6 4-6M1 6l4 6 4-6" stroke="#cfd9e1" stroke-width="1.3" fill="none"/></pattern><!-- 玩家的手：中性的手 + 浅色毛衣袖子（碎花袖留给 Lenia 的身影） -->
-  <filter id="hsh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="5" dy="9" stdDeviation="5" flood-color="#3a2010" flood-opacity=".28"/></filter>
-</defs>
-<g id="handG" transform="translate(70 200) rotate(33)" filter="url(#hsh)"><g id="handBob">
-  <path d="M-40 -330 L46 -330 L42 -120 Q2 -112 -38 -120 Z" fill="url(#knit)" stroke="#a9b6c0" stroke-width="2"/>
-  <path d="M-38 -150 Q2 -142 42 -150" fill="none" stroke="#c3ced6" stroke-width="1.4" stroke-dasharray="3 4"/>
-  <path d="M-36 -110 L-30 -128 L38 -128 L40 -110 Z" fill="#d5dee5" stroke="#a9b6c0" stroke-width="1.6"/>
-  <path d="M-26 -48 C-29 -36 -28 -26 -22 -20" fill="none" stroke="#c98a6a" stroke-width="15.4" stroke-linecap="round"/><path d="M-26 -48 C-29 -36 -28 -26 -22 -20" fill="none" stroke="url(#skinF)" stroke-width="12" stroke-linecap="round"/>
-  <path d="M-12 -46 C-15 -32 -14 -20 -8 -12" fill="none" stroke="#c98a6a" stroke-width="17.4" stroke-linecap="round"/><path d="M-12 -46 C-15 -32 -14 -20 -8 -12" fill="none" stroke="url(#skinF)" stroke-width="14" stroke-linecap="round"/>
-  <path d="M2 -46 C1 -30 1 -18 6 -9" fill="none" stroke="#c98a6a" stroke-width="18.4" stroke-linecap="round"/><path d="M2 -46 C1 -30 1 -18 6 -9" fill="none" stroke="url(#skinF)" stroke-width="15" stroke-linecap="round"/>
-  <path d="M-25 -32 q4 2 7 0 M-12 -28 q4 2 8 0 M0 -26 q4 2 8 0" fill="none" stroke="#d9a07c" stroke-width="1.3" stroke-linecap="round"/>
-  <path d="M-24 -112 C-31 -96 -35 -76 -34 -58 C-34 -49 -28 -42 -19 -41 L18 -41 C27 -45 35 -58 37 -73 C37 -88 31 -101 25 -112 Z" fill="url(#skin)" stroke="#c98a6a" stroke-width="2.2" stroke-linejoin="round"/>
-  <path d="M-27 -50 q4 -4 8 0 M-13 -46 q4 -4 9 0 M1 -45 q4 -4 9 0" fill="none" stroke="#ffeede" stroke-width="2.2" stroke-linecap="round" opacity=".9"/>
-  <path d="M-24 -88 q10 6 22 2 M-6 -70 q8 -10 2 -22" fill="none" stroke="#e8b294" stroke-width="1.3" stroke-linecap="round" opacity=".7"/>
-  <path d="M26 -100 C33 -86 35 -72 31 -60" fill="none" stroke="#e3a888" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>
-  <g id="handIdx"><path d="M16 -47 C17 -30 14 -14 4 -3" fill="none" stroke="#c98a6a" stroke-width="17.4" stroke-linecap="round"/><path d="M16 -47 C17 -30 14 -14 4 -3" fill="none" stroke="url(#skinF)" stroke-width="14" stroke-linecap="round"/><ellipse cx="6" cy="-5" rx="4" ry="2.9" transform="rotate(-50 6 -5)" fill="#f9c3c0" stroke="#d99a90" stroke-width=".9"/><path d="M13 -28 q4 1 6 -2" fill="none" stroke="#d9a07c" stroke-width="1.3" stroke-linecap="round"/></g>
-  <g id="handThumb"><path d="M32 -76 C33 -50 24 -22 8 1" fill="none" stroke="#c98a6a" stroke-width="18.9" stroke-linecap="round"/><path d="M32 -76 C33 -50 24 -22 8 1" fill="none" stroke="url(#skinF)" stroke-width="15.5" stroke-linecap="round"/><ellipse cx="10" cy="-2" rx="4.2" ry="3" transform="rotate(-60 10 -2)" fill="#f9c3c0" stroke="#d99a90" stroke-width=".9"/><ellipse cx="9" cy="-3" rx="1.6" ry=".8" transform="rotate(-60 9 -3)" fill="#fff"/><path d="M26 -36 q4 1 6 -3" fill="none" stroke="#d9a07c" stroke-width="1.3" stroke-linecap="round"/></g>
-  <path d="M-38 -108 L42 -108 L40 -124 L-38 -124 Z" fill="#dfe7ec" stroke="#a9b6c0" stroke-width="1.8" stroke-linejoin="round"/>
-  <path d="M-30 -110v-12M-22 -110v-12M-14 -110v-12M-6 -110v-12M2 -110v-12M10 -110v-12M18 -110v-12M26 -110v-12M34 -110v-12" stroke="#c3ced6" stroke-width="1.8"/>
-</g></g></svg>
 <div id="gift"><div class="box paper" id="giftB"></div></div>
 <div id="letter"><div class="box" id="letterB"></div></div>
 <button id="tankExit" class="woodbtn">退出鱼缸</button>

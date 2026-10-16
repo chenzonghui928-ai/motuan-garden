@@ -46,15 +46,20 @@ function buildThumb(M) {
   return { base, mid, tip, r };
 }
 
-export function createPlayerHand({ armLength = 3.2, reach = 0.55, facing = -1.0 } = {}) {
-  const M = leniaMaterials();
+let _fadeKnit = null; // 袖子尾端渐隐用的针织材料（顶点 alpha）
+function fadeKnit(M) { if (_fadeKnit) return _fadeKnit; const m = M.knit.clone(); m.vertexColors = true; m.transparent = true; patch(m, { rim: 0.9, wx: 0 }); return (_fadeKnit = m); }
+// fade：袖子从 fade×armLength 处往外慢慢淡掉（游戏里俯视大视野时手臂不会变成横穿整个画面的长杆子）
+let _warmSkin = null; // 游戏里的手：比 Lenia 预览的肤色再暖一点（小镇的强日光 + 色调映射下不发白）
+export function createPlayerHand({ armLength = 3.2, reach = 0.55, facing = -1.0, fade = 0, warm = false } = {}) {
+  const M0 = leniaMaterials(); const M = warm ? { ...M0, skin: _warmSkin || (_warmSkin = (() => { const m = M0.skin.clone(); m.color.set('#f0b48f'); m.emissive.set('#6a2a10'); m.emissiveIntensity = 0.08; patch(m, { rim: 0.55, wx: 0 }); return m; })()) } : M0;
   const group = new THREE.Group(); group.name = 'PlayerHand';
   const root = new THREE.Group(); root.scale.setScalar(HAND_LEN); group.add(root);
   const turn = new THREE.Group(); turn.rotation.y = facing; root.add(turn);            // 默认把拇指/食指一侧转向镜头，捏的动作看得清
   const arm = new THREE.Group(); arm.rotation.x = reach; turn.add(arm);            // 前臂从上方、朝镜头一侧伸进来
   // 袖子：罗纹袖口 + 粗针织袖身（一直伸出画面）
   arm.add(mesh(latheY([[0.17, 0.04], [0.2, 0.06], [0.205, 0.16], [0.21, 0.25], [0.19, 0.27]]), M.rib, [0, 0, 0]));
-  const sleeve = mesh(latheY([[0.185, 0.24], [0.23, 0.32], [0.255, 0.6], [0.27, 1.2], [0.29, armLength]], 30, 18), M.knit); arm.add(sleeve);
+  const sleeve = mesh(latheY([[0.185, 0.24], [0.23, 0.32], [0.255, 0.6], [0.27, 1.2], [0.29, armLength]], 30, 18), fade ? fadeKnit(M) : M.knit); arm.add(sleeve);
+  if (fade) { const P = sleeve.geometry.attributes.position, C = new Float32Array(P.count * 4); for (let i = 0; i < P.count; i++) { const y = P.getY(i); C.set([1, 1, 1, 1 - smooth(armLength * fade, armLength, y)], i * 4); } sleeve.geometry.setAttribute('color', new THREE.BufferAttribute(C, 4)); sleeve.castShadow = false; }
   sleeve.geometry.attributes.uv.array.forEach((v, i, a) => { a[i] = i % 2 ? v * armLength * 1.6 : v * 5; });
   const wrist = new THREE.Group(); wrist.rotation.x = -reach; arm.add(wrist);        // 手腕弯回来，手自然下垂
   wrist.add(mesh(new THREE.CylinderGeometry(0.15, 0.165, 0.22, 20), M.skin, [0, 0.0, -0.005]));
@@ -105,13 +110,15 @@ export function createPlayerHand({ armLength = 3.2, reach = 0.55, facing = -1.0 
       pose();
       // 轻晃（三个姿势都有，悬停时最明显）
       const sw = m === 'hover' ? 1 : 0.4; root.rotation.set(0.04 * Math.sin(t * 1.1) * sw, 0.08 * Math.sin(t * 0.7) * sw, 0.05 * Math.sin(t * 0.9 + 1) * sw);
-      if (H.obj && H.obj.parent === hold) { // 物件：被捏部分夹在食指指腹（前）和拇指指腹（后）之间
+      if (!H.obj || H.obj.parent === hold) { // 物件：被捏部分夹在食指指腹（前）和拇指指腹（后）之间（没挂物件时也算，游戏里用 anchor() 把手对到物件上）
         const a = tipLocal(fingers[0], _a), b = tipLocal(thumb, _b); const mid = a.add(b).multiplyScalar(0.5);
         const top = mid.y + clamp(H.w * 0.5, 0.02, 0.06);
         hold.position.set(mid.x, top - H.h, mid.z + H.w / 2 - H.front);
       }
       if (H.dropping) { const o = H.dropping; H.dropV += 30 * dt; o.position.y = Math.max(H.dropFloor, o.position.y - H.dropV * dt); if (o.position.y <= H.dropFloor) { H.dropping = null; } }
     },
+    // 被捏物件底面中心的世界坐标（游戏里物件由别处画，手按这个点对齐：group.position += 目标 - anchor）
+    anchor(out = new THREE.Vector3()) { group.updateMatrixWorld(true); return hold.getWorldPosition(out); },
     worldBottom() { const b = new THREE.Box3().setFromObject(group); return b.min.y; },
   };
   api.update(0, 0); api.tris = triCount(group);

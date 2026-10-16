@@ -325,13 +325,14 @@ function buildGiantClover(scene, x, z, h) {
   mergeStatic(g);
 }
 function gateClear(x, z) { const { nodes } = startGraph(); for (const n of nodes) if (n.k === 'gate') { const a = Math.atan2(n.z, n.x), b = Math.atan2(z, x); if (Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < 0.2) return false; } return true; }
+export const OUTER_TREES = []; // 花园外圈草坪上的树 [x, z, 大小]
 export function buildBackdrop(scene) {
   const n0 = scene.children.length;
   const ring = (n, r0, r1, f) => { let k = 0; for (let i = 0; i < n * 3 && k < n; i++) { const a = R(0, TAU), r = R(r0, r1); const x = Math.cos(a) * r, z = Math.sin(a) * r; if (streamDist(x, z) < 8 || !gateClear(x, z)) continue; f(x, z); k++; } };
   ring(LOW ? 9 : 14, 90, 100, (x, z) => buildGiantDaisy(scene, x, z, R(7, 11)));
   ring(LOW ? 6 : 10, 88, 100, (x, z) => buildGiantClover(scene, x, z, R(6, 10)));
   ring(10, 80, 90, (x, z) => buildTree(scene, x, z, R(0.8, 1.2)));
-  ring(LOW ? 9 : 12, 54, 59, (x, z) => buildTree(scene, x, z, R(0.75, 1.05))); // 小镇外圈的树：季节变化最看得出来
+  ring(LOW ? 9 : 12, 54, 59, (x, z) => { const k = R(0.75, 1.05); OUTER_TREES.push([x, z, k]); buildTree(scene, x, z, k); }); // 小镇外圈的树：季节变化最看得出来（位置记下来，放旧物时避开）
   ring(10, 80, 95, (x, z) => buildMushroom(scene, x, z, R(1.2, 4.5)));
   // 远方的人类花园：巨大的陶土花盆和倒下的浇水壶（提示“物件从那边来”）
   const pg = new THREE.Group(); pg.position.set(-104, groundH(-104, -40), -40); scene.add(pg);

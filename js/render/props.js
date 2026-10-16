@@ -538,7 +538,9 @@ export class Props {
     if (!tmpl && this.ghostKey !== g.kind && this.geos[g.kind]) { this.ghostKey = g.kind; this.ghost.clear(); this.ghost.add(this.groupOf(g.kind, true)); }
     this.ghost.visible = !tmpl && g.show !== false && !!this.geos[g.kind]; const s = g.r; const y = (g.x * g.x + g.z * g.z > (WORLD_R + 4) ** 2 ? groundH(g.x, g.z) : 0);
     this.ghost.position.set(g.x, y + g.h, g.z); this.ghost.rotation.set(Math.sin(g.t * 1.6) * 0.04, g.yaw, Math.sin(g.t * 1.3) * 0.05); this.ghost.scale.setScalar(s);
-    this.marker.visible = g.marker !== false; this.marker.position.set(g.x, y + 0.06, g.z); const fb = g.foot; const ms = fb ? Math.max(-fb[0], fb[1], -fb[2], fb[3]) + 0.5 : g.r * 1.25 + 0.6; this.marker.scale.set(ms, 1, ms); // 圈的大小 = 真实占地（含改造后可能的样子） this.marker.material.color.set(g.ok ? '#8ee86a' : '#ff6b5a'); this.marker.material.opacity = 0.75 + Math.sin(g.t * 4) * 0.2;
+    this.marker.visible = g.marker !== false; this.marker.position.set(g.x, y + 0.06, g.z); const fb = g.foot; const ms = fb ? Math.max(-fb[0], fb[1], -fb[2], fb[3]) + 0.5 : g.r * 1.25 + 0.6; this.marker.scale.set(ms, 1, ms); // 圈的大小 = 真实占地（含改造后可能的样子）
+    this.marker.material.color.set(g.ok ? '#8ee86a' : '#ff6b5a'); this.marker.material.opacity = 0.75 + Math.sin(g.t * 4) * 0.2;
+    const hill = y > 0.05; this.marker.material.depthTest = this.shadow.material.depthTest = !hill; // 花园外圈的草坪有起伏：平的圈别被坡埋住一半
     this.shadow.visible = g.h > 0.1; this.shadow.position.set(g.x, y + 0.05, g.z); const ss = g.r * (1.0 + 0.6 / (1 + g.h * 0.2)); this.shadow.scale.set(ss, 1, ss); this.shadow.material.opacity = clamp(1.2 - g.h * 0.08, 0.25, 0.9);
   }
   puff(x, z, r) { for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; this.puffs.push({ x, z, a, r, t: 0 }); } }
