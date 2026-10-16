@@ -1,6 +1,6 @@
 // Lenia 的身影（只露局部，按官方形象和 lenia-model.js 的 LENIA_H 尺度）：
 //   legs  白天：腰以下站在花园边的草丛里（官方牛仔裤卷边 + 白袜 + 小白鞋），腰部藏在一丛高高的观赏草里；
-//   water 白天：针织开衫袖子的手（hand-model.js）拎着喷壶，给花园边的花浇水；
+//   water 白天：一只大喷壶从画面外伸进来，倾斜着给花园边的花浇水（不画手臂）；
 //   window 夜里：Lenia 家窗户的暖光落在草地上，光里是她趴在窗边的长卷发剪影。
 // 偶尔出现几十秒（由 main.js 安排），小动物会抬头看、冒统一气泡；身影本身可以点（main.js 用 hit() 判断），点了 Lenia 说话、偶尔送东西。
 // 模型第一次出现时才建（省开局时间）；不出现时整组隐藏，不占绘制。
@@ -9,7 +9,6 @@ import { ctex, PI, TAU, clamp, lerp, smooth, M as M0, bake, tint, mergeList } fr
 import { groundH, makeTuftGeo, OUTER_TREES } from '../lib/environment.js';
 import { streamDist, GATES } from '../shared/layout.js';
 import { createLenia, leniaMaterials, LENIA_H } from '../lib/lenia-model.js';
-import { createPlayerHand, HAND_LEN } from '../lib/hand-model.js';
 
 const gy = (x, z) => groundH(x, z);
 const CALF = 0.2 * LENIA_H; // 看得见的腿（膝盖往上慢慢淡掉）
@@ -68,7 +67,7 @@ function buildBeds(scene) {
     beds.push({ x, z, a, m }); OUTER_TREES.push([x, z, 1.45]); } // 放旧物时也避开花圃
   return beds;
 }
-// 喷壶（按“手长 HAND_LEN”的单位建，挂在手里后整体跟手一起缩到 Lenia 的尺度）
+// 喷壶（自身单位建模，buildWater 里整体缩放到人类尺度：比花丛高一截）
 function buildCan() {
   const M = leniaMaterials(); const g = new THREE.Group(); const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; g.add(o); return o; };
   add(new THREE.CylinderGeometry(1.55, 1.75, 2.6, 26), M.can, 0, 1.3, 0);
@@ -80,10 +79,11 @@ function buildCan() {
   const tip = new THREE.Object3D(); tip.position.y = 3.8; sp.add(tip);
   return { g, tip, top: 2.75 + 1.25 };
 }
+const CAN_K = 1.05; // 喷壶整体缩放：壶身约 3 个单位高，比花丛（约 2.6）高一截
 function buildWater() {
-  const root = new THREE.Group(); const hand = createPlayerHand({ armLength: 14, reach: 0.15, facing: -0.4 }); const k = 0.105 * LENIA_H / HAND_LEN; // 手长 ≈ Lenia 身高的 0.105
-  const can = buildCan(); hand.attach(can.g, can.top, 0.4, 0.0); hand.setMode('pinch', true);
-  const rig = new THREE.Group(); rig.scale.setScalar(k); rig.add(hand.group); root.add(rig);
+  const root = new THREE.Group();
+  const can = buildCan(); can.g.position.y = -1.5; // 以壶身中部为转轴倾斜
+  const rig = new THREE.Group(); rig.rotation.order = 'YXZ'; rig.scale.setScalar(CAN_K); rig.add(can.g); root.add(rig);
   // 被浇水的几朵花（Lenia 家花园里的花，按人类尺度）
   const bed = new THREE.Group(); root.add(bed);
   const stem = new THREE.MeshStandardMaterial({ color: '#4f8f3e', roughness: 0.8 }); const pet = ['#ff8fb0', '#ffd23f', '#ffffff'].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 })), mid = new THREE.MeshStandardMaterial({ color: '#f2a33a', roughness: 0.6 });
@@ -96,7 +96,7 @@ function buildWater() {
   const N = 60; const pos = new Float32Array(N * 3); const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const drops = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#d8efff', size: 0.32, map: ctex(32, 32, (g) => { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 15); gr.addColorStop(0, '#fff'); gr.addColorStop(0.6, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }, [1, 1], false), transparent: true, depthWrite: false }));
   drops.frustumCulled = false; const P = Array.from({ length: N }, () => ({ x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0 }));
-  root.visible = false; drops.visible = false; return { root, rig, hand, can, bed, drops, P, pos };
+  root.visible = false; drops.visible = false; return { root, rig, can, bed, drops, P, pos };
 }
 function girl(g, cx, cy, s, tilt = 0) { // 剪影：官方形象的中分长卷发（披到肩下、发梢一卷一卷）、圆脸，趴在窗台上手托着下巴
   g.save(); g.translate(cx, cy); g.rotate(tilt); g.scale(s, s);
@@ -184,18 +184,17 @@ export class Cameo {
       if (Lg.L.pose === 'idle') { const J = Lg.L.rig.J; J.hipL.rotation.z += 0.07; J.hipR.rotation.z -= 0.07; J.anL.rotation.z -= 0.07; J.anR.rotation.z += 0.07; } // 站得稍微开一点，两条腿分得清
       if (t > D) this.stop();
     } else if (this.kind === 'water') {
-      const W = this.water; const g0 = gy(this.x, this.z); const k = 0.105 * LENIA_H / HAND_LEN;
-      if (!W.base) W.base = new THREE.Vector3(-2.6, 6.2, 0);
-      W.rig.position.set(W.base.x - (1 - inn + out) * 10, W.base.y + (1 - inn + out) * 8, W.base.z); // 手从花园外伸进来，浇完收回去
-      const pour = smooth(3.5, 5.5, t) * (1 - smooth(D - 6, D - 4, t)); W.rig.rotation.set(0, PI / 2, -pour * 0.55 + Math.sin(time * 1.3) * 0.03 * pour);
-      W.hand.update(dt, time);
+      const W = this.water; const g0 = gy(this.x, this.z);
+      if (!W.base) W.base = new THREE.Vector3(-5, 7, 0);
+      const off = 1 - inn + out; W.rig.position.set(W.base.x - off * 16, W.base.y + off * 14 + Math.sin(time * 1.1) * 0.12, W.base.z); // 喷壶从花园外上方伸进来，浇完收回去
+      const pour = smooth(3.5, 5.5, t) * (1 - smooth(D - 6, D - 4, t)); W.rig.rotation.set(pour * 0.95 + Math.sin(time * 1.3) * 0.04 * pour, PI / 2, Math.sin(time * 0.9) * 0.03);
       W.root.updateMatrixWorld(true); const rp = W.can.tip.getWorldPosition(_v); const dir = _d.set(0, 1, 0).transformDirection(W.can.tip.matrixWorld);
       let n = 0; for (const p of W.P) {
         if (p.y < g0) { if (pour > 0.6 && Math.random() < dt * 12) { p.x = rp.x + (Math.random() - 0.5) * 0.2; p.y = rp.y; p.z = rp.z + (Math.random() - 0.5) * 0.2; const sp = 2.5 + Math.random(); p.vx = dir.x * sp + (Math.random() - 0.5) * 0.5; p.vy = dir.y * sp; p.vz = dir.z * sp + (Math.random() - 0.5) * 0.5; } }
         else { p.vy -= 14 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; }
         W.pos[n++] = p.x; W.pos[n++] = p.y; W.pos[n++] = p.z;
       }
-      W.drops.geometry.attributes.position.needsUpdate = true; void k;
+      W.drops.geometry.attributes.position.needsUpdate = true;
       // 让壶嘴慢慢对准花丛正上方（离花顶一点点），水珠刚好落在花上
       _a.set(this.x, g0 + 3.4, this.z); W.root.worldToLocal(_a); _b.copy(rp); W.root.worldToLocal(_b); _a.sub(_b); W.base.addScaledVector(_a, Math.min(1, dt * 4));
       this.hitP.set(rp.x, rp.y, rp.z);
