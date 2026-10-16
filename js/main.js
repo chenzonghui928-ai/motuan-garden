@@ -14,11 +14,14 @@ import { loadArt, hydrate, setThumbs, icon } from './ui-art.js';
 import { startGuide, guideSeen } from './guide.js';
 import { createLenia } from './lenia-talk.js';
 import { createAudio } from './audio.js';
+import { play as sfx, animal as sfxAnimal } from './sfx.js';
 import { createBubbles } from './bubble.js';
+import { settings, onSetting } from './settings.js';
 import { thoughtOf } from './shared/text.js';
 import { Cameo, LENIA_CAMEO } from './render/cameo.js';
 import { Interior, canEnter, warmInterior, ROOM_NAME } from './render/interior.js';
 import { Worksite } from './render/worksite.js';
+import { FoodFX } from './render/foodfx.js';
 import { DAY, SPECIES, WORLD_R, GATES, streamDist, CAP, STORE_POS } from './shared/layout.js';
 import { DESTS } from './shared/journey.js';
 import { ITEMS, ITEM_K, TEMPLATE_OF, TEMPLATE_KINDS, renderKindOf, placeCheck, SEEDS, goldRings, moveCheck, movable, COMBOS, PLACE_R } from './shared/items.js';
@@ -34,7 +37,7 @@ const DEBUG = Q.has('debug'); if (DEBUG) document.body.classList.add('debug');
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 const DPR = Math.min(devicePixelRatio || 1, LOW ? 1.75 : 2);
-renderer.setPixelRatio(DPR); renderer.setSize(innerWidth, innerHeight, false);
+renderer.setPixelRatio(DPR); renderer.setSize(innerWidth, innerHeight, false); let prBase = DPR, prNow = DPR; // prBase：基础像素比（鱼缸会改）；prNow：当前实际用的（快进画质会再降）
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = LOW ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 renderer.info.autoReset = false;
@@ -51,7 +54,8 @@ const updateResources = buildResources(scene);
 const gateList = buildGates(scene); buildBackdrop(scene);
 altar.egg.userData.noMerge = true;
 globalMerge(scene);
-const maskFlora = buildFlora(scene);
+const nFl0 = scene.children.length; const maskFlora = buildFlora(scene);
+const floraIMs = scene.children.slice(nFl0).filter(o => o.isInstancedMesh).map(im => ({ im, full: im.count })); // 草/花/三叶草：快进画质时减量
 buildSpecies(scene);
 const town = new Town(scene);
 const props = new Props(scene); town.onLand = (x, z, r) => props.puff(x, z, r);
@@ -61,6 +65,7 @@ const cameo = new Cameo(scene, props); // Lenia 的身影（偶尔露出局部�
 const nugget = new Nugget(scene); // 鸡块：Lenia 家的白团子，常驻花园的小吉祥物
 nugget.camera = camera; // 停下、被点、睡觉时转向镜头
 const golds = new GoldRings(scene); // 放置模式的金圈
+const foodfx = new FoodFX(scene); // 手里的食物小模型、烤面包的轻烟
 const worksite = new Worksite(scene); // 改造中的房子：脚手架、绳子围栏、材料堆、头顶小牌子
 const interior = new Interior(scene); interior.camera = camera; // 进屋（玩具屋式掀顶）
 const buildMs = performance.now() - tBuild0;
@@ -79,7 +84,8 @@ const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: fals
     #include <colorspace_fragment>
   }` });
 const sky = new THREE.Mesh(new THREE.SphereGeometry(1400, 24, 12), skyMat); sky.renderOrder = -1; scene.add(sky);
-scene.fog = new THREE.Fog('#e9f6ff', 220, 650);
+const FOG_N = 170, FOG_F = 520; // 空气墙配套：雾调近，地面尽头和地平线都被雾盖住（最远镜头 190、墙内最远 ~120）
+scene.fog = new THREE.Fog('#e9f6ff', FOG_N, FOG_F);
 const KF = [
   { t: 0.00, sun: '#7f8fff', si: 0.7, sky: '#6f78d0', gnd: '#3b3f6e', hi: 1.15, top: '#1b2058', hor: '#4b4f9a', exp: 1.05, night: 1, rim: '#5866e0' },
   { t: 0.165, sun: '#7f8fff', si: 0.7, sky: '#6f78d0', gnd: '#3b3f6e', hi: 1.15, top: '#252a6a', hor: '#5a5aa0', exp: 1.05, night: 1, rim: '#5866e0' },
@@ -142,7 +148,7 @@ function worldLight() {
   sun.color.multiply(seaS.sun).lerp(_wc.set('#d9e1ef'), cl * 0.45); sun.intensity *= (1 - 0.64 * cl) * seaS.ex;
   hemi.color.multiply(seaS.hemi).lerp(_wc.set('#bac7d8'), cl * 0.38); hemi.groundColor.lerp(_wc.set('#5c6272'), cl * 0.3); hemi.intensity *= 1 - 0.1 * cl + sn * 0.06;
   const dim = 1 - NIGHT * 0.82; skyMat.uniforms.top.value.lerp(_wc.set('#8d9bb0').multiplyScalar(dim), cl * 0.8); skyMat.uniforms.hor.value.lerp(_wc.set('#d2d8df').multiplyScalar(dim), cl * 0.72);
-  scene.fog.color.copy(skyMat.uniforms.hor.value); scene.fog.near = lerp(220, 70, Math.max(rn * 0.85, sn * 0.7)); scene.fog.far = lerp(650, 300, Math.max(rn * 0.85, sn * 0.65));
+  scene.fog.color.copy(skyMat.uniforms.hor.value); scene.fog.near = lerp(FOG_N, 70, Math.max(rn * 0.85, sn * 0.7)); scene.fog.far = lerp(FOG_F, 300, Math.max(rn * 0.85, sn * 0.65));
   renderer.toneMappingExposure *= 1 - 0.1 * cl;
   wxv.style.opacity = (rn * 0.32 + sn * 0.06 + cl * 0.06).toFixed(3); // 雨天整体偏冷偏暗（一层很淡的蓝灰）
 }
@@ -160,9 +166,25 @@ function updateWorld(dt) {
 // ---------------------------------------------------------------- camera / controls / fish tank
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
-controls.minPolarAngle = 0.25; controls.maxPolarAngle = 1.3; controls.minDistance = 6; controls.maxDistance = 260;
+controls.minPolarAngle = 0.25; controls.maxPolarAngle = 1.3; controls.minDistance = 6; controls.maxDistance = 190;
 controls.screenSpacePanning = false; controls.zoomSpeed = 0.9; controls.rotateSpeed = 0.6;
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+// ---------------------------------------------------------------- 空气墙：镜头目标点限制在圆形范围内（软边界 + 回弹）
+// 基础半径 80，随已建范围略扩大（所有已放置物件到中心的最大距离 + 余量，与 80 取大，上限 120）；拖出边界时有阻力，松手平滑弹回；进屋、跟随、飞行中不管。
+const WALL_R0 = 80, WALL_RMAX = 120, WALL_PAD = 14, WALL_SOFT = 16; // WALL_SOFT：拖着时最多能拖出边界多远
+let wallS = WALL_R0, wallT = WALL_R0, ctlDrag = false;
+controls.addEventListener('start', () => { ctlDrag = true; }); controls.addEventListener('end', () => { ctlDrag = false; });
+const wallRadius = () => wallT;
+function wallUpdate() { wallT = clamp(Math.max(WALL_R0, town.extent() + WALL_PAD), WALL_R0, WALL_RMAX); }
+function applyWall(dt) {
+  wallS += (wallT - wallS) * (1 - Math.exp(-dt * 2)); // 已建范围变大时墙平滑外移
+  if (interior.busy || cam.fly) return;
+  const tx = controls.target.x, tz = controls.target.z, r = Math.hypot(tx, tz); if (r <= wallS) return;
+  const ex = r - wallS, k = ctlDrag ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * 6); // 拖着：每帧被拉回一大截（越拖越吃力，最多超出 WALL_SOFT）；松手：平滑弹回
+  const nr = wallS + Math.min(ex * (1 - k), WALL_SOFT), f = nr / r;
+  const mx = tx * f - tx, mz = tz * f - tz; controls.target.x += mx; controls.target.z += mz; camera.position.x += mx; camera.position.z += mz;
+}
+function wallClampPoint(v, pad = 0) { const r = Math.hypot(v.x, v.z), lim = wallS - pad; if (r > lim) { v.x *= lim / r; v.z *= lim / r; } return v; }
 const CTL0 = { minPolarAngle: controls.minPolarAngle, maxPolarAngle: controls.maxPolarAngle, minDistance: controls.minDistance, maxDistance: controls.maxDistance, enablePan: true, rotateSpeed: controls.rotateSpeed };
 // 双指拧（绕镜头中心水平转）：OrbitControls 只管双指缩放 + 平移，拧的角度在这里补上；放置模式（镜头锁住）不转
 const twist = { pts: new Map(), a: null };
@@ -234,7 +256,7 @@ function updateTank(dt) {
   if (tank.mode === 'follow' && chars.get(tank.follow) && !chars.get(tank.follow).hidden) { const c = chars.get(tank.follow); T = tank.camT.set(c.x, c.y + 0.8, c.z); pol = 0.98; }
   else if (tank.mode === 'haul' && town.lots.get(tank.follow) && lastSnap && lastSnap.proj.some(p => p.lot === tank.follow)) { const d = town.lots.get(tank.follow); T = tank.camT.set(d.x, groundY(d.x, d.z) + 1, d.z); pol = 0.92; }
   else { if (tank.mode !== 'orbit') tankNext(); T = tank.camT.set(-2, 0, 0); pol = 0.8; }
-  tank.azi += dt * 0.035;
+  wallClampPoint(T, 4); tank.azi += dt * 0.035;
   const P = tank.camP.set(T.x + Math.sin(pol) * Math.sin(tank.azi) * tank.dist, T.y + Math.cos(pol) * tank.dist, T.z + Math.sin(pol) * Math.cos(tank.azi) * tank.dist);
   const k = 1 - Math.exp(-dt * 0.7); controls.target.lerp(T, k); camera.position.lerp(P, k);
 }
@@ -258,7 +280,7 @@ function select(id) { selected = id; }
 send({ type: 'init', save: saved, kinds: kindsMeta, seed: Q.has('seed') ? +Q.get('seed') : undefined });
 worker.onmessage = (e) => {
   const m = e.data;
-  if (m.type === 'struct') { struct = m.st; _ps = null; nugget.setStruct(struct); if (mode.kind === 'place') refreshGold(); town.setStruct(struct); props.setStruct(struct); weather.setStruct(struct); roads.rebuild(struct.nodes, struct.edges); maskFlora(struct.lots.filter(l => l.stage !== 'far'), struct.nodes, struct.edges); if (moveWait) { const l = struct.lots.find(l => l.id === moveWait.id); if (!l) { moveWait = null; town.hideId = props.hideId = -1; } else if (Math.hypot(l.x - moveWait.x, l.z - moveWait.z) < 0.8) { landMoved(l.id); moveWait = null; town.hideId = props.hideId = -1; } } const ex = town.extent(); if (Math.abs(ex - viewExtent) > 5 && userHold <= 0 && !tank.on && !cam.follow && !interior.busy) { viewExtent = ex; defaultView(); } if (interior.busy && !struct.lots.some(l => l.id === interior.lotId && canEnter(l))) exitInterior(true); }
+  if (m.type === 'struct') { struct = m.st; _ps = null; nugget.setStruct(struct); if (mode.kind === 'place') refreshGold(); town.setStruct(struct); props.setStruct(struct); weather.setStruct(struct); roads.rebuild(struct.nodes, struct.edges); maskFlora(struct.lots.filter(l => l.stage !== 'far'), struct.nodes, struct.edges); if (moveWait) { const l = struct.lots.find(l => l.id === moveWait.id); if (!l) { moveWait = null; town.hideId = props.hideId = -1; } else if (Math.hypot(l.x - moveWait.x, l.z - moveWait.z) < 0.8) { landMoved(l.id); moveWait = null; town.hideId = props.hideId = -1; } } wallUpdate(); const ex = town.extent(); if (Math.abs(ex - viewExtent) > 5 && userHold <= 0 && !tank.on && !cam.follow && !interior.busy) { viewExtent = ex; defaultView(); } if (interior.busy && !struct.lots.some(l => l.id === interior.lotId && canEnter(l))) exitInterior(true); }
   else if (m.type === 'snap') onSnap(m);
   else if (m.type === 'info') { info = m.info; gateNew.clear(); for (const f of info.far) { let b = 0, bd = 1e9; GATES.forEach((g, i) => { const d = Math.hypot(g[0] - f.x, g[1] - f.z); if (d < bd) { bd = d; b = i; } }); gateNew.add(b); } ui.onInfo(info); if (!document.getElementById('guide')) lenia.onInfo(info); /* 引导进行时 Lenia 的卡片就是她在说话，不再叠第二个气泡 */ renderFollow(); if (mode.kind === 'plant' || mode.kind === 'water') renderTend(); }
   else if (m.type === 'dreamResult') ui.onDreamResult(m);
@@ -277,13 +299,13 @@ function onSnap(s) {
   for (let i = 0; i < n; i++) {
     const o = i * SNAP_STRIDE; const id = b[o]; let c = chars.get(id); alive.add(id); const x = b[o + 2], z = b[o + 3], yw = b[o + 4];
     if (!c) { c = makeAnimState(id, SPECIES[b[o + 1]]); c.x = c.bx = x; c.z = c.bz = z; c.yaw = yw; c.vis = 0; c.h = []; chars.set(id, c); }
-    const L = c.h[c.h.length - 1]; if (L && Math.hypot(x - L[1], z - L[2]) > 40) c.h.length = 0; // 瞬移（远行回来等）：不插值
+    const L = c.h[c.h.length - 1]; if (L && Math.hypot(x - L[1], z - L[2]) > 40 + speed) c.h.length = 0; // 瞬移（远行回来等）：不插值
     c.h.push([snapNom, x, z, yw]); if (c.h.length > 5) c.h.shift(); c.act = b[o + 5]; c.flags = b[o + 6];
   }
   for (const id of [...chars.keys()]) if (!alive.has(id)) chars.delete(id);
   if (!lastSnap || Math.abs(s.dayT - dayT) > 0.02 && Math.abs(s.dayT - dayT) < 0.98) dayT = s.dayT;
   lastSnap = s; snapAt = now; speed = s.speed;
-  town.setProjects(s.proj); props.setProjects(s.proj); updateResources(s.stock, s.store);
+  town.setProjects(s.proj); props.setProjects(s.proj); updateResources(s.stock, s.stores || s.store);
 }
 const angD = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 function interpolate(dt) {
@@ -307,7 +329,7 @@ const blobIM = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-PI
 blobIM.frustumCulled = false; blobIM.count = 0; scene.add(blobIM);
 // 选中居民脚下的光圈
 const selRing = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.82, 32).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#ffb347', transparent: true, opacity: 0.9, depthWrite: false })); selRing.visible = false; scene.add(selRing);
-const realShadows = () => !LOW && !tank.on;
+const realShadows = () => !LOW && !tank.on && !fq.frozen;
 let shadowT = 0, nLo = 0, nHi = 0;
 const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _bp = new THREE.Vector3();
 // 纯表现层的避让：相互重叠的角色轻轻推开（不回写模拟），避免排成一串叠在一起
@@ -360,7 +382,7 @@ canvas.addEventListener('pointerup', (e) => {
   closeThought();
   let best = null, bd = 44;
   for (const c of chars.values()) { if (c.vis < 0.3) continue; _v.set(c.x, c.y + 0.7, c.z).project(camera); if (_v.z > 1) continue; const sx = (_v.x * 0.5 + 0.5) * innerWidth, sy = (-_v.y * 0.5 + 0.5) * innerHeight; const d = Math.hypot(sx - e.clientX, sy - e.clientY); if (d < bd) { bd = d; best = c; } }
-  if (best) { if (bubbles.has(best.id)) openThought(best.id); else startFollow(best.id); return; } // 冒着气泡的居民：先看心声（框里能“跟着它”）；没气泡：镜头跟着它，底部小卡片
+  if (best) { sfxAnimal(best.species); if (bubbles.has(best.id)) openThought(best.id); else startFollow(best.id); return; } // 冒着气泡的居民：先看心声（框里能“跟着它”）；没气泡：镜头跟着它，底部小卡片
   if (nugget.hit(camera, e.clientX, e.clientY, innerWidth, innerHeight)) { nuggetTap(); return; }
   if (LENIA_CAMEO && cameo.hit(camera, e.clientX, e.clientY, innerWidth, innerHeight)) { cameoTap(); return; }
   const gi = pickGate(e.clientX, e.clientY); if (gi >= 0) { ui.openGate(gi); return; }
@@ -581,7 +603,7 @@ function edgeScroll(dt) {
   const ex = edgeK(mode.px / innerWidth), ey = edgeK(mode.py / innerHeight); if (!ex && !ey) return;
   const off = camera.position.clone().sub(controls.target); const fx = -off.x, fz = -off.z, fl = Math.hypot(fx, fz) || 1; // 屏幕“上”在地上的方向
   const sp = off.length() * 0.4 * dt; const dx = (-fz / fl * ex - fx / fl * ey) * sp, dz = (fx / fl * ex - fz / fl * ey) * sp;
-  const nx = controls.target.x + dx, nz = controls.target.z + dz, R = Math.hypot(nx, nz), lim = PLACE_R - 6, k = R > lim ? lim / R : 1;
+  const nx = controls.target.x + dx, nz = controls.target.z + dz, R = Math.hypot(nx, nz), lim = wallS, k = R > lim ? lim / R : 1;
   const mx = nx * k - controls.target.x, mz = nz * k - controls.target.z; if (Math.abs(mx) + Math.abs(mz) < 1e-5) return;
   controls.target.x += mx; controls.target.z += mz; camera.position.x += mx; camera.position.z += mz; camera.updateMatrixWorld();
   placeMove({ pointerId: -1, clientX: mode.px, clientY: mode.py });
@@ -604,7 +626,7 @@ document.getElementById('placeOk').onclick = () => {
     setTimeout(() => { if (moveWait && moveWait.id === id) { moveWait = null; town.hideId = props.hideId = -1; } }, 4000); return; }
   if (mode.kind !== 'place') return; checkPlace(); if (!mode.ok) return;
   if (mode.gold1) { mode.x = mode.gold1.x; mode.z = mode.gold1.z; mode.yaw = mode.gold1.rot; } // 放进金圈：对齐圈心
-  const d = { x: mode.x, z: mode.z, t: performance.now() }; town.pendingDrop = props.pendingDrop = d;
+  const d = { x: mode.x, z: mode.z, t: performance.now() }; town.pendingDrop = props.pendingDrop = d; sfx('drop'); // 放下：咚 + 叮铃（从箱里拖出来时 ui.boxDragDone 也会发一次，限频后只响一声）
   send({ type: 'lenia', act: 'drop', item: mode.item, x: mode.x, z: mode.z, rot: mode.yaw, hold: guideEnv.hold && mode.item === 'teapot' });
   endMode(true, false, d); handLeave();
 };
@@ -774,7 +796,7 @@ function cameoLook(dt) {
 const PR_TANK = Math.min(DPR, LOW ? 1.25 : 1.5);
 function setTank(on) {
   if (on) exitInterior(true); // 鱼缸模式不进屋
-  tank.on = on; document.body.classList.toggle('tank', on); renderer.setPixelRatio(on ? PR_TANK : DPR); onResize();
+  tank.on = on; document.body.classList.toggle('tank', on); prBase = on ? PR_TANK : DPR; applyPR(true);
   if (on) { userHold = 0; cam.follow = null; cam.fly = null; ui.setTab('town'); tankNext(); } else { document.body.classList.remove('peek'); }
 }
 let peekTimer = 0; function peekTank() { document.body.classList.add('peek'); clearTimeout(peekTimer); peekTimer = setTimeout(() => document.body.classList.remove('peek'), 3000); }
@@ -782,14 +804,76 @@ document.getElementById('tankBtn').onclick = () => setTank(true);
 document.getElementById('tankExit').onclick = () => setTank(false);
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && mode.boxDrag) boxDragEnd(null, true); if (e.key === 'Escape' && interior.busy) exitInterior(); if (e.key === 'Escape' && tank.on) setTank(false); if (e.key === 'f' && !tank.on && document.activeElement === canvas) setTank(true); });
 
+// ---------------------------------------------------------------- 快进画质：倍速 ≥3× 时自动省画质（设置里“倍速时省画质”可关）
+// 冻结阴影贴图（灯仍 castShadow，只停 autoUpdate，不重编译着色器）、像素比降到 1、草/花减量，加一层很淡的暖色暗角和“快进”小标；
+// 进入：约 0.5 秒内分三步降像素比和草花；回 1×：先分两步恢复像素比和草花，再过 0.5 秒才恢复实时阴影（分开两帧段，不卡）。
+const fq = { on: false, frozen: false, f: 0, prDone: true, flDone: true, pr: DPR, flora: 1, t: 0, shT: -1 };
+const FQ_PR = 1, fqFx = document.getElementById('fastfx');
+function applyPR(force = false) { // 实际像素比 = min(基础, 快进) ；有变化才重设（重设会重分配画布，别每帧调）
+  const v = Math.min(prBase, fq.pr); if (!force && Math.abs(v - prNow) < 0.01) return; prNow = v; renderer.setPixelRatio(v); onResize();
+}
+// 低分辨率离屏渲染：重设画布像素比要重新分配（多重采样）缓冲，实测一次卡 80～400 毫秒；
+// 所以快进画质不动画布，而是启动时预先建好一块 1 倍像素比的离屏目标（4 倍抗锯齿、半精度浮点），快进时场景画进去、再铺满画布（铺的时候做色调映射和颜色空间转换，颜色和直接画一致）。
+// 切换只是换一条渲染路径，不分配内存；预热（把离屏版的着色器编好）放在加载画面还在的时候。创建失败就退回 setPixelRatio。
+const fqRT = { rt: null, quad: null, qs: null, qc: null, use: false, fail: false };
+function fqInitRT() {
+  if (fqRT.rt || fqRT.fail) return !fqRT.fail;
+  try {
+    const half = renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float');
+    const rt = new THREE.WebGLRenderTarget(Math.round(innerWidth * FQ_PR), Math.round(innerHeight * FQ_PR), { type: half ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: LOW ? 2 : 4, depthBuffer: true });
+    const mat = new THREE.ShaderMaterial({ uniforms: { tex: { value: rt.texture } }, depthTest: false, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }',
+      fragmentShader: 'uniform sampler2D tex; varying vec2 vUv; void main(){ gl_FragColor=texture2D(tex,vUv);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' });
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+    fqRT.rt = rt; fqRT.quad = quad; fqRT.qs = new THREE.Scene(); fqRT.qs.add(quad); fqRT.qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    return true;
+  } catch (e) { console.warn('fq rt', e); fqRT.fail = true; return false; }
+}
+function fqWarm() { // 把离屏路径的着色器编好（加载画面还在时调用）
+  if (settings().fastq === false || !fqInitRT()) return; try { fqRT.use = true; render(); fqRT.use = false; render(); } catch (e) { fqRT.fail = true; fqRT.use = false; }
+}
+function setFlora(k) { fq.flora = k; for (const f of floraIMs) f.im.count = Math.max(1, Math.round(f.full * k)); }
+function fqWant() { return settings().fastq !== false && spdSel >= 3; }
+function fqSync() { // 倍速或设置变了：开始一次进入/退出
+  const w = fqWant(); if (w === fq.on) return; fq.on = w; fq.t = 0; fq.prDone = false; fq.flDone = false; document.body.classList.toggle('fast', w);
+  if (fqFx) fqFx.dataset.spd = String(spdSel);
+  if (w) { fq.frozen = true; fq.shT = -1; } else fq.shT = 0.5; // 退出时：阴影 0.5 秒后再恢复
+}
+onSetting((k) => { if (k === 'fastq') fqSync(); });
+function fastQ(dt) {
+  fq.t += dt;
+  if (fq.t < 1) { // 渐变期：像素比只改一次（重设画布本身最贵，分几步反而卡几次），草花分两步，不和像素比挤在同一帧
+    if (!fq.prDone) { fq.prDone = true; if (fq.on && fqInitRT() && !fqRT.fail) fqRT.use = true; else if (!fq.on && fqRT.use) fqRT.use = false; else { fq.pr = fq.on ? FQ_PR : DPR; applyPR(); } }
+    if (fq.t >= 0.17 && !fq.flDone) { fq.flDone = true; setFlora(fq.on ? 0.45 : 1); fq.f = fq.on ? 1 : 0; }
+  }
+  if (!fq.on && fq.shT > 0) { fq.shT -= dt; if (fq.shT <= 0) { fq.frozen = false; fq.shT = -1; } } // 回 1×：像素比和草花先恢复，0.5 秒后才恢复实时阴影
+}
+if (fqFx) fqFx.dataset.spd = '1';
 // ---------------------------------------------------------------- 调试面板（?debug）
-const SPD_KEY = 'lenia-garden-speed', SPD_STEPS = [1, 3, 10]; let spdSel = 1; // spdSel：玩家选的倍速（快照里的 speed 会晚一拍，连点时不能用它）
+// 通知纸条的位置：跟着左上角木牌和右侧图标的实际底边走（不同屏幕、木牌高矮都不重叠）
+{ const root = document.documentElement, hud = document.getElementById('hud'), hl = document.getElementById('hudL'), hr = document.getElementById('hudR');
+  const place = () => { const hb = hud.getBoundingClientRect(); const safe = Math.max(0, hb.top - 8); let bot = hl.getBoundingClientRect().bottom;
+    if (matchMedia('(max-width:899px)').matches) { const r = hr.getBoundingClientRect(); if (r.width) bot = Math.max(bot, r.bottom); }
+    root.style.setProperty('--toastTop', Math.ceil(bot - safe + 8) + 'px'); };
+  place(); addEventListener('resize', place); addEventListener('orientationchange', place); if (window.ResizeObserver) { const ro = new ResizeObserver(place); ro.observe(hl); ro.observe(hr); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(place); setTimeout(place, 1500); }
+const SPD_KEY = 'lenia-garden-speed', SPD_STEPS = [1, 3, 10, 30, 60]; let spdSel = 1; // spdSel：玩家选的倍速（快照里的 speed 会晚一拍，连点时不能用它）
 const setSpeed = (v, keep = false) => {
-  send({ type: 'speed', v }); speed = spdSel = v; document.querySelectorAll('#panel [data-spd]').forEach(b => b.classList.toggle('on', +b.dataset.spd === v));
+  send({ type: 'speed', v }); speed = spdSel = v; fqSync(); document.querySelectorAll('#panel [data-spd]').forEach(b => b.classList.toggle('on', +b.dataset.spd === v));
   document.querySelectorAll('#spdRow [data-spd]').forEach(x => { const on = +x.dataset.spd === v; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  { const cur = document.getElementById('spdCur'); if (cur) { cur.dataset.spd = String(v); cur.dataset.fast = v >= 3 ? '1' : '0'; cur.querySelector('b').textContent = v + 'X'; cur.setAttribute('aria-label', `当前${v}倍速，展开速度选择`); } }
   if (!keep) try { localStorage.setItem(SPD_KEY, String(v)); } catch (e) { }
 };
-document.querySelectorAll('#spdRow [data-spd]').forEach(b => b.onclick = () => setSpeed(+b.dataset.spd)); // 三个按钮一排，点哪档就是哪档（debug 的 60× 时三个都不亮）
+// 手机：当前倍速按钮展开/收起五档木条；选完收起，点外面、Esc、再点按钮都收起（不改倍速）
+const spdCurBtn = document.getElementById('spdCur'), spdRowEl = document.getElementById('spdRow');
+const spdMenu = (open, back = false) => { if (!spdCurBtn) return; spdRowEl.classList.toggle('open', open); document.body.classList.toggle('spdopen', open); spdCurBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); if (!open && back) spdCurBtn.focus({ preventScroll: true }); };
+if (spdCurBtn) {
+  spdCurBtn.onclick = () => spdMenu(!spdRowEl.classList.contains('open'));
+  document.addEventListener('pointerdown', (e) => { if (spdRowEl.classList.contains('open') && !spdRowEl.contains(e.target) && !spdCurBtn.contains(e.target)) { spdMenu(false); if (e.target === canvas) e.stopPropagation(); } }, true);
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && spdRowEl.classList.contains('open')) spdMenu(false, true); });
+  addEventListener('resize', () => { if (!matchMedia('(max-width:599px)').matches) spdMenu(false); });
+}
+document.querySelectorAll('#spdRow [data-spd]').forEach(b => b.onclick = () => { setSpeed(+b.dataset.spd); spdMenu(false, true); }); // 三个按钮一排，点哪档就是哪档（debug 的 60× 时三个都不亮）
 document.querySelectorAll('#panel [data-spd]').forEach(b => b.onclick = () => setSpeed(+b.dataset.spd));
 document.getElementById('dbgAdv').onclick = () => send({ type: 'advance', sec: DAY / 2 });
 document.getElementById('dbgAway').onclick = () => send({ type: 'away', ms: 5 * 3600e3 });
@@ -802,7 +886,7 @@ function refreshPanel(fps) {
 
 // ---------------------------------------------------------------- loop
 let last = performance.now(), simT = 0, fpsFrames = 0, fpsT = 0, saveT = 0, frameMs = 0;
-function onResize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); town.smokeMat.uniforms.uScale.value = h * renderer.getPixelRatio() / (2 * Math.tan(camera.fov * PI / 360)); }
+function onResize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); if (fqRT.rt) fqRT.rt.setSize(Math.round(w * FQ_PR), Math.round(h * FQ_PR)); camera.aspect = w / h; camera.updateProjectionMatrix(); town.smokeMat.uniforms.uScale.value = h * renderer.getPixelRatio() / (2 * Math.tan(camera.fov * PI / 360)); }
 let lastPortrait = innerHeight > innerWidth * 1.1;
 addEventListener('resize', () => { onResize(); const pt = innerHeight > innerWidth * 1.1; if (pt !== lastPortrait) { lastPortrait = pt; if (userHold <= 0 && !tank.on && !interior.busy) { defaultView(); onResize(); } } if (interior.busy) { const v = interior.view(camera); camera.position.copy(v.pos); controls.target.copy(v.target); cam.fly = null; } });
 defaultView(); onResize();
@@ -812,7 +896,7 @@ addEventListener('pagehide', () => send({ type: 'save', reason: 'hide' }));
 function step(dt) {
   simT += dt; timeU.value = simT;
   const simNow = updateWorld(dt); dayT = (dayT + dt * speed / DAY) % 1; applyTime(dayT);
-  interpolate(dt); separate(dt); cameoLook(dt); updateCharacters(dt, simT); edgeScroll(dt); updateMode(dt, simT); updateHandLeave(dt, simT); town.update(dt, simT, chars, camera); props.update(dt, simT, camera); worksite.update(dt, simT, siteList()); interior.update(dt, simT, info, smooth(0.35, 0.8, NIGHT)); if (interior.busy) renderWho(); updateEmos(dt);
+  interpolate(dt); separate(dt); cameoLook(dt); updateCharacters(dt, simT); edgeScroll(dt); updateMode(dt, simT); updateHandLeave(dt, simT); town.update(dt, simT, chars, camera); props.update(dt, simT, camera); worksite.update(dt, simT, siteList()); foodfx.update(dt, simT, chars, lastSnap, struct, lotHR); interior.update(dt, simT, info, smooth(0.35, 0.8, NIGHT)); if (interior.busy) renderWho(); updateEmos(dt);
   const sw = seaS.w, nightK = smooth(0.35, 0.8, NIGHT); _wc.copy(hemi.color).multiplyScalar(hemi.intensity / 1.2 * 0.75).add(_sa.copy(sun.color).multiplyScalar(sun.intensity / 3.3 * 0.35));
   weather.setDensity((LOW ? 0.5 : 1) * (tank.on ? 0.6 : 1) * (interior.busy ? 0.25 : 1)); // 手机减半，鱼缸再减；进屋时屋顶开着，雨雪少一点
   weather.update(dt, simT, camera, controls.target, { rain: wxS.rain, snow: wxS.snow, petals: sw[0] * seaS.bloom * (1 - wxS.rain) * 0.55, leaves: sw[2] * smooth(0.15, 0.8, seaS.si === 2 ? seaS.f : 1) * (1 - wxS.rain * 0.6) * 0.8,
@@ -823,14 +907,18 @@ function step(dt) {
   if (userHold > 0) userHold -= dt;
   if (cam.fly) { const f = cam.fly; f.t = Math.min(1, f.t + dt / (f.dur || 1.2)); const e = smooth(0, 1, f.t); camera.position.lerpVectors(f.p0, f.p1, e); controls.target.lerpVectors(f.t0, f.t1, e); if (f.t >= 1) { cam.fly = null; if (interior.busy && interior.state !== 'closing') insideControls(true); } }
   else if (cam.follow != null && !tank.on) { const c = chars.get(cam.follow); if (c) { const k = 1 - Math.exp(-dt * 2); _v.set(c.x, c.y + 0.8, c.z); const off = camera.position.clone().sub(controls.target); const want = Math.min(off.length(), 24); off.setLength(lerp(off.length(), want, k)); controls.target.lerp(_v, k); camera.position.copy(controls.target).add(off); } }
-  updateTank(dt); controls.update();
+  updateTank(dt); controls.update(); applyWall(dt); fastQ(dt);
   updateCameo(dt, simT);
   nugget.update(dt, simT, chars, NIGHT > 0.62 && !interior.busy); golds.update(simT); followEl.classList.toggle('on', cam.follow != null && !tank.on); if (mascotS.bub > 0) mascotS.bub -= dt;
   audio.update(dt, { dayT, wx: curWx, season: SEASONS[seaS.si], rain: wxS.rain, near: clamp(1 - streamDist(controls.target.x, controls.target.z) / 45, 0, 1) });
   sun.target.position.set(clamp(controls.target.x, -30, 30), 0, clamp(controls.target.z, -30, 30));
   sky.position.copy(camera.position);
 }
-function render() { renderer.info.reset(); renderer.render(scene, camera); }
+function render() {
+  renderer.info.reset();
+  if (fqRT.use && fqRT.rt) { renderer.setRenderTarget(fqRT.rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(fqRT.qs, fqRT.qc); }
+  else renderer.render(scene, camera);
+}
 function loop(now) {
   requestAnimationFrame(loop);
   if (document.hidden) { last = now; return; }
@@ -858,18 +946,18 @@ function afterLoad() {
   if ((allow || Q.has('greet')) && info) { let done = false; const rel = () => { if (!done) { done = true; ui.holdGift(false); } }; lenia.greet(info, rel); setTimeout(rel, 4200); return; }
   ui.holdGift(false);
 }
-(function waitLoad() { if (loadDone) return; if (lastSnap) loadP(0.9, '叫醒小动物…'); if ((lastSnap && ((window.__ng && window.__ng.frames) || 0) > 3) || performance.now() - loadT0 > 9000) finishLoading(); else setTimeout(waitLoad, 120); })();
+(function waitLoad() { if (loadDone) return; if (lastSnap) loadP(0.9, '叫醒小动物…'); if ((lastSnap && ((window.__ng && window.__ng.frames) || 0) > 3) || performance.now() - loadT0 > 9000) { try { fqWarm(); } catch (e) { } finishLoading(); } else setTimeout(waitLoad, 120); })();
 setTimeout(() => { try { setThumbs(makeThumbs(renderer, town, props)); } catch (e) { console.warn('thumbs', e); } }, 300);
 setTimeout(() => { try { // 预热进屋用的着色器（剖面材质的几种变体 + 家具材质），第一次进屋不卡
   const sm = [], seen = new Set(); for (const rk of ['egg', 'tea', 'rboot']) for (const b of town.ensure(rk, 'hi').T.buckets) { const k = b.vc ? b.key : (b.src.map ? 'map' : '') + (b.src.metalness > 0.3 ? 'm' : '') + (b.src.transparent ? 't' : ''); if (seen.has(k)) continue; seen.add(k); sm.push([b.vc ? b.key : b.src, b.vc]); }
   sm.push([props.lmat.main, false], [props.lmat.metal, false]); warmInterior(renderer, camera, scene, sm);
 } catch (e) { console.warn('warm', e); } }, 2500);
-{ let sv = 1; try { sv = +localStorage.getItem(SPD_KEY) || 1; } catch (e) { } if (!SPD_STEPS.includes(sv)) sv = 1; setSpeed(Q.has('x') ? +Q.get('x') : sv, Q.has('x')); }
+{ let sv = 1; try { sv = +localStorage.getItem(SPD_KEY) || 1; } catch (e) { } if (!SPD_STEPS.includes(sv)) sv = SPD_STEPS.reduce((a, b) => Math.abs(b - sv) < Math.abs(a - sv) ? b : a, 1); /* 旧存的值：取最近的一档 */ setSpeed(Q.has('x') ? +Q.get('x') : sv, Q.has('x')); }
 if (Q.has('tank')) setTank(true);
 
 // ---------------------------------------------------------------- test hooks（Playwright 截图/测数用）
 window.__ng = {
-  ready: true, THREE, scene, camera, controls, chars, town, renderer, buildMs, setSpeed, setTank, defaultView, send, ui, focusAt,
+  fq, fqRT, wall: () => ({ R: wallS, T: wallT, drag: ctlDrag }), floraIMs, ready: true, THREE, scene, camera, controls, chars, town, renderer, buildMs, setSpeed, setTank, defaultView, send, ui, focusAt,
   get snap() { return lastSnap; }, get struct() { return struct; }, get info() { return info; }, get saveBytes() { return saveBytes; }, frameMs: () => frameMs,
   advance: (sec) => send({ type: 'advance', sec }),
   save: () => send({ type: 'save' }),
@@ -879,7 +967,7 @@ window.__ng = {
   userHold: () => userHold,
   stats() { render(); const i = renderer.info; return { charHi: nHi, charLo: nLo, houseHi: town.nHi, houseLo: town.nLo, calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, progs: i.programs.length, frameMs, templateTris: town.templateTris }; },
   setDay(t) { send({ type: 'setTime', dayT: t }); dayT = t; },
-  guideEnv, worksite, siteList, props, mode, startPlace, startTend, endMode, interior, enterInterior, exitInterior, pickLot, dbgInside: (lot, what = 'eat') => send({ type: 'dbgInside', lot, what }), dbgShop: (lot, n = 3) => send({ type: 'dbgShop', lot, n }), dbgStall: (lot) => send({ type: 'dbgStall', lot }), stress: (n) => send({ type: 'stress', n }), startGuide: (force = true) => startGuide(ui, { force }),
+  guideEnv, worksite, siteList, props, mode, startPlace, startTend, endMode, interior, enterInterior, exitInterior, pickLot, dbgInside: (lot, what = 'eat') => send({ type: 'dbgInside', lot, what }), dbgShop: (lot, n = 3) => send({ type: 'dbgShop', lot, n }), dbgFood: (o) => send({ type: 'dbgFood', ...o }), foodfx, dbgStall: (lot) => send({ type: 'dbgStall', lot }), stress: (n) => send({ type: 'stress', n }), startGuide: (force = true) => startGuide(ui, { force }),
   placeAt(x, z, yaw = 0) { mode.x = x; mode.z = z; mode.yaw = yaw; checkPlace(); return { ok: mode.ok, why: mode.why }; },
   confirmPlace() { document.getElementById('placeOk').click(); },
   lenia(m) { send({ type: 'lenia', ...m }); },

@@ -6,16 +6,20 @@ import {
   streamDist, SPECIES, SP_NAME, SPEED, OBJ_KINDS, NATURAL, TEAM, CAP, KIND_DEFAULT, RESOURCES, USES, SHOP,
   POP_CAP, MAX_OBJ_LOTS, MATS, MAT_NAME, MAT_NATURAL, MAT_TRINKET, STAGE_COST, STAGE_NAME, startGraph, isNight, hm, OBJ_NAME, shopSpots, TIME_K, TIER_DAYS, TIER_NAME,
 } from '../shared/layout.js';
-import { NAMES, TRAITS, TRAIT_CLASH, SP_TRAITS, wishText, AWAY } from '../shared/text.js';
+import { NAMES, TRAITS, TRAIT_CLASH, SP_TRAITS, wishText, AWAY, eatText } from '../shared/text.js';
+import { FOOD_IDS, FOODS, FAV_FOOD, RSC_FOOD, BREAD_FAN, emptyStore, storeSum, splitOldStore, eatEffect, chooseFood } from '../shared/food.js';
 import { FOODISH, FAC, ITEMS, MAX_SILL, streamSide, PLACE_R } from '../shared/items.js';
 import { footOf, localFoot, prepFit, fitCheck, segShape, overlapPairs } from '../shared/footprint.js';
-import { installLenia } from './lenia.js';
+import { installLenia, EMO } from './lenia.js';
 import { installSeasons } from './seasons.js';
 
 export const ACT = { IDLE: 0, WALK: 1, GATHER: 2, FISH: 3, FARM: 4, EAT: 5, SLEEP: 6, CHAT: 7, BUILD: 8, INSIDE: 9, HAUL: 10, CHOP: 11 };
 export const FLAG = { CARRY: 1, HIDDEN: 2, HAPPY: 4, PULL: 8, EMOTE: 64 };
 export const SNAP_STRIDE = 7; // id, sp, x, z, yaw, act, flags
-export const SAVE_VERSION = 8; // 8：配方（远行带回的搭配配方，旧档由已拼出过的组合 + 茶壶毛线球补齐）； 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上）
+export const SAVE_VERSION = 9; // 9：粮筐按品种分开存（旧档的总数按 3:4:3 拆成莓果/菜/鱼，面包从零开始），店里有自己的面包库存； 8：配方（远行带回的搭配配方，旧档由已拼出过的组合 + 茶壶毛线球补齐）； 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上）
+const HUNGRY_AT = 32; // 饱腹低于这个数就会头顶冒“饿了”
+const STORE_FULL = 20; // 粮筐里每种食物堆到这么多就不再专门去采
+const BAKE_T = 45; // 一炉面包要烤多久（模拟秒）
 const FRIEND = 30, FRIEND_MEETS = 5, DREAM_COST = 3, MAX_WISHES = 8, MAX_CARDS = 40, MAX_ALBUM = 240;
 const LOW_JOBS = new Set(['wander', 'plaza', 'visit', 'wait', 'arrive']);
 
@@ -25,7 +29,7 @@ export class Sim {
     if (opts.kinds) for (const k in opts.kinds) if (this.K[k]) this.K[k] = opts.kinds[k];
     this.log = []; this.gateLog = []; // gateLog：每个村口发生过的真事（远行出发/回来、拖回的旧物、门外新出现的东西），最多留 40 条
     if (opts.save) {
-      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, 7, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
+      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, 7, 8, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
       catch (e) { this.log.push('存档读取失败，重新开局'); this.loadError = String(e && e.message || e); }
     }
     this.fresh(opts.seed ?? 1015);
@@ -37,7 +41,7 @@ export class Sim {
     this.res = []; this.lots = []; this.projects = [];
     const g = startGraph(seed); this.nodes = g.nodes; this.edges = g.edges; this.graphDirty = true;
     this.rsc = RESOURCES.map((r, i) => ({ ...r, id: i, stock: r.max * 0.8 }));
-    this.store = 16; this.mats = { twig: 4, stone: 2, grass: 2, button: 1, cap: 1, thread: 1, nail: 1 };
+    this.store = splitOldStore(16); this.foodLog = []; this.mats = { twig: 4, stone: 2, grass: 2, button: 1, cap: 1, thread: 1, nail: 1 };
     this.cards = []; this.album = []; this.cardId = 1; this.cardVer = 1; this.cat = {}; this.dreams = []; this.dreamId = 1; this.gift = null; this.savedAt = 0;
     this.stats = { hauls: 0, built: 0, stuck: 0, arrivals: 0, discover: 0, chats: 0, friends: 0, wishDone: 0, dreamDone: 0, dreamBlocked: 0, dreamExpired: 0, shopVisits: 0, blocked: 0, interrupts: 0 };
     this.nextArrival = this.t + DAY * 0.4; this.nextFar = this.t + DAY * 0.3; this.nextWish = this.t + DAY * 0.02; this.farN = 1; this.tierT = 0;
@@ -60,7 +64,7 @@ export class Sim {
     const pool = [...SP_TRAITS[sp], ...SP_TRAITS[sp], ...Object.keys(TRAITS)]; const traits = [];
     for (let g = 0; g < 40 && traits.length < 2; g++) { const t = this.pick(pool); if (!traits.includes(t) && !traits.some(o => TRAIT_CLASH[o].includes(t))) traits.push(t); }
     const r = { id: this.nextId++, name, sp, traits, x, z, yaw: this.rnd(0, TAU), full: this.rnd(60, 90), energy: this.rnd(65, 95), mood: 62, home: -1,
-      act: ACT.IDLE, flags: 0, steps: [], si: 0, way: null, wi: 0, timer: this.rnd(0.5, 3), carry: 0, box: 0, chatCD: this.rnd(10, 40), chat: null,
+      act: ACT.IDLE, flags: 0, steps: [], si: 0, way: null, wi: 0, timer: this.rnd(0.5, 3), carry: 0, carryF: null, fav: this.rng() < BREAD_FAN ? 'bread' : FAV_FOOD[sp], ate: [], hungryCD: 0, box: 0, chatCD: this.rnd(10, 40), chat: null,
       haul: null, ox: this.rnd(-0.5, 0.5), oz: this.rnd(-0.5, 0.5), spd: SPEED[sp] * this.rnd(0.9, 1.1), job: '', doing: '刚醒来，揉揉眼睛', aff: {}, wish: null, wishCD: 0, dream: null,
       hauled: 0, built: 0, owner: -1, recent: [], late: this.rnd(-0.015, 0.03), meets: {}, lastMeet: {}, friends: [], emote: 0, mv: 0, mvT: 0, taskT: 0, lastShop: -1e9, buildP: 0, fetchP: 0, seat: null, got: null, builtOn: 0 };
     this.res.push(r); return r;
@@ -401,19 +405,22 @@ export class Sim {
   decide(r) {
     const night = isNight(this.dayT(), r.late + (this.has(r, 'chatty') || this.has(r, 'curious') ? 0.015 : 0)); const home = this.lotById(r.home);
     if (r.home < 0) this.claimBed(r);
+    this.stowFood(r);
+    const supper = night && r.energy >= 12 && r.full < 50 && !!chooseFood(r.fav, this.store); // 睡前先吃点：不然小块的莓果之后一觉睡到饿
     // 1) 睡觉
-    if (night || r.energy < 12) {
+    if ((night || r.energy < 12) && !supper) {
       const h = this.lotById(r.home);
       if (h && h.done) return this.setSteps(r, [this.go(...h.door), this.doo(ACT.INSIDE, 0, 'sleepHome')], 'sleep', `在${h.name}里睡觉`);
       const a = this.rnd(0, TAU), rr = this.rnd(6.2, 8.4); return this.setSteps(r, [this.go(Math.cos(a) * rr, Math.sin(a) * rr), this.doo(ACT.SLEEP, 0, 'sleepCamp')], 'camp', '在祭坛边的草地上打地铺');
     }
     // 2) 吃饭
-    if (r.full < 35 || (r.full < 50 && this.has(r, 'foodie'))) {
-      const shop = this.lots.find(l => l.use === 'shop' && FOODISH.has(l.shop) && l.done && l.owner !== r.id && this.shopOpen(l) && this.freeSeat(l) >= 0);
-      if (shop && this.rng() < 0.55) return this.visitShop(r, shop);
-      if (this.store >= 1) { const a = this.rnd(0, TAU), rr = this.rnd(5.6, 8.6), b = this.rnd(0, TAU); const take = [this.go(STORE_POS[0] + Math.cos(b) * 2.2, STORE_POS[1] + Math.sin(b) * 2.2), this.doo(ACT.IDLE, 1.2, 'takeFood')];
+    if (r.full < 35 || (r.full < 50 && this.has(r, 'foodie')) || supper) {
+      const shop = this.lots.find(l => l.use === 'shop' && FOODISH.has(l.shop) && l.done && l.owner !== r.id && this.shopOpen(l) && this.freeSeat(l) >= 0 && (l.bread || 0) - l.seats.filter(Boolean).length >= 1); // 店里要真有现做的面包才去
+      if (shop && this.rng() < 0.4) return this.visitShop(r, shop);
+      const want = chooseFood(r.fav, this.store);
+      if (want) { const a = this.rnd(0, TAU), rr = this.rnd(5.6, 8.6), b = this.rnd(0, TAU); const take = [this.go(STORE_POS[0] + Math.cos(b) * 2.2, STORE_POS[1] + Math.sin(b) * 2.2), this.doo(ACT.IDLE, 1.2, 'takeFood')];
         const h = this.lotById(r.home); if (h && h.done && this.rng() < 0.4) return this.setSteps(r, [...take, this.go(...h.door), this.doo(ACT.INSIDE, this.rnd(10, 16), 'eat')], 'eat', `把吃的带回${h.name}，坐在桌边慢慢吃`); // 有家的有时带回家吃（进屋能看到围坐吃饭）
-        return this.setSteps(r, [...take, this.go(Math.cos(a) * rr, Math.sin(a) * rr), this.doo(ACT.EAT, 7, 'eat')], 'eat', '去粮筐拿吃的'); }
+        return this.setSteps(r, [...take, this.go(Math.cos(a) * rr, Math.sin(a) * rr), this.doo(ACT.EAT, 7, 'eat')], 'eat', `去粮筐拿${FOODS[want].name}吃`); }
       return this.gather(r, true);
     }
     // 3) 店主看店
@@ -423,7 +430,7 @@ export class Sim {
     if (r.dream && r.dream.status === 'pending' && r.full >= 25) { if (this.doDream(r)) return; }
     // 5) 打分
     const opts = []; const pop = this.res.length; const target = pop * 4 + 10; const W = r.wish ? r.wish.type : ''; const dT = this.dayT();
-    opts.push(['gather', clamp((target - this.store) / target, 0, 1) * 1.6 + 0.12 + (this.has(r, 'diligent') ? 0.25 : 0) + (W === 'fish' || W === 'berry' ? 0.8 : 0)]);
+    opts.push(['gather', clamp((target - storeSum(this.store)) / target, 0, 1) * 1.6 + 0.12 + (this.has(r, 'diligent') ? 0.25 : 0) + (W === 'fish' || W === 'berry' ? 0.8 : 0)]);
     const hp = this.projects.filter(p => (p.stage === 'gather' || p.stage === 'haul') && p.team.length < p.need);
     if (hp.length && dT < 0.8 && r.full > 45) { const fr = hp[0].team.some(id => r.friends.includes(id)) ? 0.5 : 0; opts.push(['haul', 1.9 + fr + (this.has(r, 'generous') ? 0.4 : 0) + (W === 'haul' ? 0.8 : 0) + (this.has(r, 'easy') ? -0.4 : 0)]); }
     const rp = this.projects.filter(p => p.stage === 'renovate');
@@ -468,8 +475,8 @@ export class Sim {
   gather(r, forSelf, prefType = null, onlyIdx = -1, exclude = -1) {
     const pref = prefType || { chick: 'veg', rabbit: 'veg', cat: 'fish', dog: 'berry', duck: 'fish', bear: 'berry' }[r.sp];
     let best = null;
-    for (const s of this.rsc) { if (s.type === 'wood' || s.stock < 1 || s.id === exclude) continue; if (onlyIdx >= 0 && s.id !== onlyIdx) continue; const sc = (s.type === pref ? 25 : 0) - Math.hypot(s.x - r.x, s.z - r.z) * 0.6 + s.stock * 0.3 + this.rng() * 10; if (!best || sc > best.sc) best = { s, sc }; }
-    if (!best) { const a = this.rnd(0, TAU); return this.setSteps(r, [this.go(Math.cos(a) * 8, Math.sin(a) * 8), this.doo(ACT.IDLE, 8, null)], 'wait', '能吃的都被采光了，在广场上等等'); }
+    for (const s of this.rsc) { if (s.type === 'wood' || s.stock < 1 || s.id === exclude) continue; if (onlyIdx >= 0 && s.id !== onlyIdx) continue; if (!forSelf && (this.store[RSC_FOOD[s.type]] || 0) >= STORE_FULL) continue; /* 这种已经堆满了，不用再采 */ const ft = RSC_FOOD[s.type]; const lack = clamp((12 - (this.store[ft] || 0)) / 12, 0, 1); /* 粮筐里这种缺得越多越想采它 */ const sc = (s.type === pref ? 16 : 0) + lack * 14 - Math.hypot(s.x - r.x, s.z - r.z) * 0.6 + s.stock * 0.3 + this.rng() * 10; if (!best || sc > best.sc) best = { s, sc }; }
+    if (!best) { const a = this.rnd(0, TAU); const stocked = this.rsc.some(q => q.type !== 'wood' && q.stock >= 1); return this.setSteps(r, [this.go(Math.cos(a) * 8, Math.sin(a) * 8), this.doo(ACT.IDLE, 8, null)], 'wait', stocked ? '粮筐里的吃的够多了，在广场上晒晒太阳' : '能吃的都被采光了，在广场上等等'); }
     const s = best.s; let px, pz;
     if (s.type === 'veg') { const side = this.rng() < 0.5 ? -1 : 1; px = s.x + this.rnd(-s.hx + 0.6, s.hx - 0.6); pz = s.z + side * (s.hz + 0.9); }
     else if (s.type === 'fish') { const a = this.rnd(-0.8, 0.8); px = s.x - Math.sin(s.ang + a) * 1.3; pz = s.z - Math.cos(s.ang + a) * 1.3; }
@@ -514,28 +521,71 @@ export class Sim {
     const i = this.freeSeat(l); if (i < 0) return this.gather(r, true);
     const s = shopSpots(l, this.K[l.kind]).seats[i];
     this.setSteps(r, [this.go(s[0], s[1]), this.doo(ACT.EAT, this.rnd(14, 22), 'shopEat', { lot: l.id, face: [s[2], s[3]] })], 'shop', `去${l.name}${SHOP[l.shop].act}`);
-    l.seats[i] = r.id; r.seat = [l.id, i];
+    l.seats[i] = r.id; r.seat = [l.id, i]; if (FOODISH.has(l.shop) && (l.bread || 0) >= 1) r.carryF = 'bread';
   }
   releaseSeat(r) { if (r.seat) { const l = this.lotById(r.seat[0]); if (l && l.seats[r.seat[1]] === r.id) l.seats[r.seat[1]] = 0; r.seat = null; } }
+  // ---------------------------------------------------------------- 吃：每种食物效果不同，吃到最爱的更开心
+  stowFood(r) { // 手上还剩着没吃的（被打断了）：饿就顺手吃一份，其余放回粮筐，不让食物凭空消失
+    if (!r.carryF || !(r.carry > 0)) { r.carry = r.carryF ? 0 : r.carry; r.carryF = null; return; }
+    const k = r.carryF; let n = r.carry; r.carry = 0; r.carryF = null;
+    if (r.full < 80) { this.ate(r, k, '路边'); n -= 1; }
+    if (n > 0) this.store[k] = (this.store[k] || 0) + n;
+  }
+  noteSwap(r, k) { // 最爱的吃不到、改吃别的：记一笔（日常小事，不是失败）
+    const f = r.fav; if (k === f || (this.store[f] || 0) >= 1) return;
+    this.stats.swaps = (this.stats.swaps || 0) + 1; const sh = this.stats.short || (this.stats.short = {}); sh[f] = (sh[f] || 0) + 1;
+    this.remember(r, `想吃${FOODS[f].name}，可粮筐里没有了，改吃${FOODS[k].name}`);
+  }
+  ate(r, food, where, portion = 1, light = false) {
+    const e = eatEffect(r.fav, food, portion); r.full = Math.min(100, r.full + e.full); r.mood = Math.min(100, r.mood + e.mood); r.energy = Math.min(100, r.energy + e.energy);
+    const rec = { f: food, fav: e.fav ? 1 : 0, day: this.day(), hm: hm(this.dayT()), at: where }; r.ate.unshift(rec); if (r.ate.length > 3) r.ate.length = 3;
+    this.foodLog.unshift({ id: r.id, name: r.name, sp: r.sp, ...rec }); if (this.foodLog.length > 8) this.foodLog.length = 8;
+    const st = this.stats; st.eats = (st.eats || 0) + 1; const by = st.eatBy || (st.eatBy = {}); by[food] = (by[food] || 0) + 1; if (e.fav) st.favEats = (st.favEats || 0) + 1;
+    if (!light) this.remember(r, eatText(food, e.fav, where));
+    if (e.fav && !light) this.emo(r, EMO.LOVE + FOOD_IDS.indexOf(food), 4, { k: 'favEat', a: FOODS[food].name, b: where });
+    return e;
+  }
+  // 面包房 / 小食堂：店主在店里真的烤面包。用粮筐里的菜和莓果当原料；炉子烤上一阵才出炉，原料不够就不出
+  bakeTick(dt) {
+    const reserve = 4;
+    for (const l of this.lots) {
+      if (l.use !== 'shop' || !FOODISH.has(l.shop) || !l.done) { if (l.cook) l.cook = 0; continue; }
+      const o = this.rById(l.owner); const work = !!(o && !o.away && o.job === 'tend' && o.si >= 1 && !isNight(this.dayT()));
+      if (!work) { l.cook = 0; continue; }
+      const raw = this.store.veg + this.store.berry;
+      if (!(l.cook > 0)) { if ((l.bread || 0) < 4 && this.store.bread < 5 && raw >= 3 + reserve) l.cook = 0.01; else continue; }
+      l.cook += dt;
+      if (l.cook >= BAKE_T) {
+        l.cook = 0; const S = this.store; const take = []; // 配方：菜 2 + 莓果 1 → 面包 3；缺哪样就用另一样顶上（一共要 3 份）
+        const nv = Math.min(2, Math.floor(S.veg)), nb = Math.min(1, Math.floor(S.berry)); for (let i = 0; i < nv; i++) take.push('veg'); for (let i = 0; i < nb; i++) take.push('berry');
+        while (take.length < 3) { const k = S.veg - take.filter(x => x === 'veg').length >= S.berry - take.filter(x => x === 'berry').length ? 'veg' : 'berry'; if (S[k] - take.filter(x => x === k).length < 1) break; take.push(k); }
+        if (take.length < 3 || raw < 3 + reserve) { l.fail = (l.fail || 0) + 1; continue; } // 没原料：这一炉不出
+        for (const k of take) S[k] -= 1;
+        const inShop = Math.min(2, 6 - (l.bread || 0)); l.bread = (l.bread || 0) + inShop; S.bread += 3 - inShop;
+        l.baked = (l.baked || 0) + 3; this.stats.baked = (this.stats.baked || 0) + 3;
+        if (o) { o.mood = Math.min(100, o.mood + 1); this.remember(o, `在${l.name}烤出一炉面包`); }
+      }
+    }
+  }
   // step handlers (task results)；返回 true 表示已经换了新任务
   onDone(r, st) {
     const s = this.rsc[st.src];
     switch (st.fn) {
-      case 'takeFood': if (this.store >= 1) { this.store -= 1; r.carry = 1; } break;
-      case 'eat': if (r.carry) { r.full = Math.min(100, r.full + 62); r.mood = Math.min(100, r.mood + 4); r.carry = 0; } break;
+      case 'takeFood': { const k = chooseFood(r.fav, this.store); if (k) { this.noteSwap(r, k); this.store[k] -= 1; r.carry = 1; r.carryF = k; } break; }
+      case 'eat': if (r.carry) { this.ate(r, r.carryF || 'veg', r.act === ACT.INSIDE ? '家里' : '粮筐边'); r.carry = 0; r.carryF = null; } break;
       case 'gather': case 'gatherEat': {
         if (!s || s.stock < 1) { // 目标没了：换个地方（受阻 → 改选）
           this.stats.blocked++; this.remember(r, `${s ? s.name : '那里'}已经被采光了，换个地方`);
           if (r.dream && r.dream.status === 'pending' && r.dream.type === 'res' && s && r.dream.target === s.id) this.dreamEnd(r, 'blocked', `${s.name}已经被采光了`);
           this.gather(r, st.fn === 'gatherEat', null, -1, st.src); return true;
         }
-        if (st.fn === 'gather') { const n = Math.min(s.stock, s.type === 'fish' ? 3 : 2.5); s.stock -= n; r.carry = n; } else { s.stock -= 1; r.full = Math.min(100, r.full + 45); }
+        if (st.fn === 'gather') { const n = Math.min(s.stock, s.type === 'fish' ? 3 : 2.5); s.stock -= n; r.carry = n; r.carryF = RSC_FOOD[s.type] || 'veg'; } else { s.stock -= 1; this.ate(r, RSC_FOOD[s.type] || 'veg', s.name); }
         if (s.type === 'fish') this.wishHit(r, 'fish'); if (s.type === 'berry') this.wishHit(r, 'berry');
         if (r.dream && r.dream.status === 'pending' && r.dream.type === 'res' && r.dream.target === s.id) this.dreamEnd(r, 'done', `在${s.name}满载而归`);
         this.pickup(r, s.type === 'fish' ? 'stone' : s.type === 'veg' ? 'grass' : 'twig', 0.2);
         break;
       }
-      case 'deliver': this.store += r.carry; r.carry = 0; r.mood = Math.min(100, r.mood + 2); break;
+      case 'deliver': this.store[r.carryF || 'veg'] = (this.store[r.carryF || 'veg'] || 0) + r.carry; r.carry = 0; r.carryF = null; r.mood = Math.min(100, r.mood + 2); break;
       case 'work': {
         const p = this.projects.find(p => p.id === r.buildP); const lot = this.lotById(st.lot);
         if (p && lot && p.stage === 'renovate') { lot.prog = Math.min(lot.paid / 3, lot.prog + 12 / (80 + TEAM[p.kind] * 22) * (lot.fast && Date.now() < lot.fast ? 14 : 1)); r.built++; r.builtOn = lot.id; this.wishHit(r, 'build'); r.mood = Math.min(100, r.mood + 1); }
@@ -566,9 +616,9 @@ export class Sim {
       }
       case 'shopEat': {
         const l = this.lotById(st.lot); if (!l) break; this.stats.shopVisits++; r.lastShop = this.t;
-        if (FOODISH.has(l.shop)) { if (this.store >= 1) { this.store -= 1; r.full = Math.min(100, r.full + 50); } r.mood = Math.min(100, r.mood + 12); } else { r.mood = Math.min(100, r.mood + 14); r.energy = Math.min(100, r.energy + 12); }
+        if (FOODISH.has(l.shop)) { if ((l.bread || 0) >= 1 && r.full < 75) { l.bread -= 1; this.ate(r, 'bread', l.name); r.mood = Math.min(100, r.mood + 4); l.sold = (l.sold || 0) + 1; } else { r.mood = Math.min(100, r.mood + 5); this.remember(r, (l.bread || 0) >= 1 ? `去${l.name}坐了坐，肚子不饿，闻着面包香就够了` : `去${l.name}坐了坐，刚好面包卖完了`); } } else { r.mood = Math.min(100, r.mood + 14); r.energy = Math.min(100, r.energy + 12); }
         const o = this.rById(l.owner); if (o) { o.mood = Math.min(100, o.mood + 2); this.bond(r, o, 3); }
-        this.remember(r, `在${l.name}${SHOP[l.shop].verb}`); this.wishHit(r, 'shop');
+        if (!FOODISH.has(l.shop)) this.remember(r, `在${l.name}${SHOP[l.shop].verb}`); this.wishHit(r, 'shop');
         if (!l.firstGuest) { l.firstGuest = r.id; if (!this.lots.some(o => o !== l && o.firstGuest)) this.addCard('guest', `${l.name}的第一位客人`, `${r.name}成了${l.name}的第一位客人，${SHOP[l.shop].verb}${o ? `，还跟店主${o.name}聊了好一会儿` : ''}。`, o ? [r, o] : [r], [l.x, l.z]); }
         break;
       }
@@ -602,6 +652,10 @@ export class Sim {
     r.energy = clamp(r.energy + dt * (r.act === ACT.INSIDE ? (r.job === 'sleep' ? 0.5 : 0.35) : r.act === ACT.SLEEP ? 0.32 : -0.17) / TIME_K, 0, 100);
     r.mood = clamp(r.mood + ((55 - r.mood) * dt * 0.0015 - (r.full < 15 ? dt * 0.04 : 0)) / TIME_K, 0, 100);
     r.chatCD -= dt; if (r.emote > 0) r.emote -= dt; r.taskT += dt;
+    if (r.hungryCD > 0) r.hungryCD -= dt;
+    if (r.full < HUNGRY_AT && r.hungryCD <= 0 && !r.emo && r.act !== ACT.SLEEP && r.act !== ACT.INSIDE && !['eat', 'shop', 'camp', 'sleep'].includes(r.job)) { // 饿了：头顶冒个“饿”气泡，点开会说想吃什么
+      const f = r.fav; r.hungryCD = 45; this.emo(r, EMO.HUNGRY, 6, { k: 'hungry', a: FOODS[f].name, b: (this.store[f] || 0) >= 1 ? '' : FOODS[chooseFood(r.fav, this.store) || 'veg'].name });
+    }
     if (r.chat) { r.chat.t -= dt; r.act = ACT.CHAT; if (r.chat.t <= 0) { r.act = r.chat.prev; r.chat = null; r.chatCD = this.rnd(25, 60); } return; }
     if (r.haul) return this.stepHauler(r, dt);
     // 被打断：饿坏了 / 做太久
@@ -838,7 +892,7 @@ export class Sim {
     if (this.projects.some(p => p.stage === 'done')) this.projects = this.projects.filter(p => p.stage !== 'done');
     this._sec = (this._sec || 0) + dt;
     if (this._sec >= 1) {
-      this._sec -= 1; this.social();
+      this._sec -= 1; this.social(); this.bakeTick(1);
       for (const s of this.rsc) s.stock = Math.min(s.max, s.stock + s.regen);
       if (this.t >= this.nextFar) {
         // 远方的东西越来越稀：第 k 件之后隔 0.35+0.13k 天（最多约 1.8 天）；满员后再慢一点
@@ -864,12 +918,14 @@ export class Sim {
       if (r.act === ACT.EAT || (r.mood > 80 && r.act === ACT.IDLE)) f |= FLAG.HAPPY;
       if (r.haul) { const p = this.projects.find(p => p.id === r.haul); if (p && p.moving) f |= FLAG.PULL; }
       if (r.emote > 0) f |= FLAG.EMOTE;
-      buf[o] = r.id; buf[o + 1] = SPECIES.indexOf(r.sp); buf[o + 2] = r.x; buf[o + 3] = r.z; buf[o + 4] = r.yaw; buf[o + 5] = r.chat ? ACT.CHAT : r.act; buf[o + 6] = f + (r.chat ? 16 * (r.chat.side + 1) : 0);
+      buf[o] = r.id; buf[o + 1] = SPECIES.indexOf(r.sp); buf[o + 2] = r.x; buf[o + 3] = r.z; buf[o + 4] = r.yaw; const hold = r.carryF && (r.act === ACT.EAT || (r.act === ACT.WALK && r.job === 'eat')) ? FOOD_IDS.indexOf(r.carryF) + 1 : 0; // 手里拿着的食物（画面上显示小模型）
+      const bk = r.job === 'tend' && r.act === ACT.IDLE && r.si >= 1 && this.lots.some(l => l.owner === r.id && l.cook > 0); // 店主正在烤面包：画面上是干活的姿势
+      buf[o + 5] = r.chat ? ACT.CHAT : bk ? ACT.BUILD : r.act; buf[o + 6] = f + (r.chat ? 16 * (r.chat.side + 1) : 0) + (hold << 8);
     });
     const proj = this.projects.map(p => { const lot = this.lotById(p.lot); const o = { id: p.id, kind: p.kind, stage: p.stage, x: p.x, z: p.z, yaw: p.yaw, moving: p.moving, team: p.team.slice(), need: p.need, prog: lot.prog, haulProg: p.cum ? p.s / p.cum[p.cum.length - 1] : 1, lot: p.lot };
       if (p.stage === 'renovate') { o.paid = lot.paid; o.miss = this.siteMissing(lot); o.pile = this.sitePile(lot); } return o; });
     const emo = []; for (const r of this.res) if (r.emo) emo.push(r.id, r.emo);
-    return { buf, proj, emo, wx: this.worldSnap(), t: this.t, dayT: this.dayT(), day: this.day(), store: this.store, pop: n, houses: this.lots.filter(l => l.done).length, ver: this.ver, homeless: this.homeless().length, stock: this.rsc.map(s => s.stock / (s.max > 1e8 ? 1 : s.max)) };
+    return { buf, proj, emo, wx: this.worldSnap(), t: this.t, dayT: this.dayT(), day: this.day(), store: storeSum(this.store), stores: FOOD_IDS.map(k => this.store[k]), bake: this.lots.filter(l => l.cook > 0).map(l => l.id), pop: n, houses: this.lots.filter(l => l.done).length, ver: this.ver, homeless: this.homeless().length, stock: this.rsc.map(s => s.stock / (s.max > 1e8 ? 1 : s.max)) };
   }
   rkind(l) { return l.use === 'shop' && ['tea', 'fish', 'cup', 'honey'].includes(l.kind) ? l.kind + 'S' : l.kind; }
   structure() {
@@ -878,17 +934,17 @@ export class Sim {
   info() { // 给界面用的“可读”信息，每秒一次
     const nm = (id) => this.rById(id)?.name;
     return {
-      day: this.day(), hm: hm(this.dayT()), dayT: this.dayT(), dreamCost: DREAM_COST, mats: { ...this.mats }, store: Math.floor(this.store), pop: this.res.length, popCap: POP_CAP,
+      day: this.day(), hm: hm(this.dayT()), dayT: this.dayT(), dreamCost: DREAM_COST, mats: { ...this.mats }, store: Math.floor(storeSum(this.store)), stores: Object.fromEntries(FOOD_IDS.map(k => [k, Math.floor(this.store[k] * 10) / 10])), foodLog: this.foodLog.slice(0, 8), foodStats: { ...(this.stats.eatBy || {}), swaps: this.stats.swaps || 0, favEats: this.stats.favEats || 0, eats: this.stats.eats || 0 }, pop: this.res.length, popCap: POP_CAP,
       res: this.res.map(r => {
         const h = this.lotById(r.home); const own = this.lotById(r.owner);
         const rel = Object.entries(r.aff).map(([id, v]) => ({ id: +id, name: nm(+id), v: Math.round(v) })).filter(x => x.name).sort((a, b) => b.v - a.v);
         return { id: r.id, name: r.name, sp: r.sp, traits: r.traits, full: Math.round(r.full), energy: Math.round(r.energy), mood: Math.round(r.mood), home: h ? h.name : '还没有家', homeKind: h ? h.kind : null, homeCombo: h ? h.combo || null : null, owner: own ? own.name : null,
           friends: rel.filter(x => r.friends.includes(x.id)), acq: rel.filter(x => !r.friends.includes(x.id)).slice(0, 2), wish: r.wish ? { type: r.wish.type, text: r.wish.text, day: r.wish.day } : null, doing: r.doing, recent: r.recent.slice(),
-          dream: r.dream ? r.dream.label : null, hauled: r.hauled, built: r.built, hidden: r.act === ACT.INSIDE, bub: r.emo ? { code: r.emo, why: r.emoWhy || null } : null, chatP: r.chat ? nm(r.chat.p) : null, away: !!r.away, trip: r.job === 'trip', x: r.x, z: r.z, job: r.job, act: r.act, in: this.inLot(r), hl: r.home };
+          dream: r.dream ? r.dream.label : null, hauled: r.hauled, built: r.built, hidden: r.act === ACT.INSIDE, bub: r.emo ? { code: r.emo, why: r.emoWhy || null } : null, chatP: r.chat ? nm(r.chat.p) : null, away: !!r.away, trip: r.job === 'trip', x: r.x, z: r.z, job: r.job, act: r.act, in: this.inLot(r), hl: r.home, ate: r.ate.map(a => ({ ...a })), fav: r.fav };
       }),
       far: this.lots.filter(l => l.stage === 'far').map(l => ({ id: l.id, kind: l.kind, name: OBJ_NAME[l.kind], x: l.x, z: l.z })),
       projs: this.projects.filter(p => p.stage !== 'done').map(p => { const l = this.lotById(p.lot); return { id: p.id, kind: p.kind, stage: p.stage, team: p.team.length, need: p.need, prog: l.prog, paid: l.paid, name: l.use ? l.name : OBJ_NAME[p.kind], use: l.use, missing: p.stage === 'renovate' && l.prog >= l.paid / 3 - 1e-6 ? this.stageMissing(l) : [], x: p.x, z: p.z, lot: p.lot, item: l.item || null, who: this.siteWho(p, l), eta: this.siteEta(p, l), recall: this.recallable ? this.recallable(l).ok : false, lx: l.x, lz: l.z, hp: p.cum && p.cum[p.cum.length - 1] > 0 ? p.s / p.cum[p.cum.length - 1] : 0 }; }),
-      lots: this.lots.filter(l => l.stage !== 'far' && !l.upTo).map(l => ({ moving: l.moving ? 1 : 0, carry: l.carry || 0, id: l.id, name: l.name, kind: l.kind, use: l.use, tier: l.tier || 0, shop: l.shop, done: l.done, owner: nm(l.owner), open: l.use === 'shop' && l.done && this.shopOpen(l), beds: l.beds.map(nm), x: l.x, z: l.z, item: l.item || null, combo: l.combo || null, fac: l.fac || null, stage: l.stage, by: l.by || [], ev: l.ev || [], pond: l.pond || 0 })),
+      lots: this.lots.filter(l => l.stage !== 'far' && !l.upTo).map(l => ({ moving: l.moving ? 1 : 0, carry: l.carry || 0, id: l.id, name: l.name, kind: l.kind, use: l.use, tier: l.tier || 0, shop: l.shop, done: l.done, owner: nm(l.owner), open: l.use === 'shop' && l.done && this.shopOpen(l), bread: l.bread || 0, baking: l.cook > 0 ? 1 : 0, baked: l.baked || 0, sold: l.sold || 0, beds: l.beds.map(nm), x: l.x, z: l.z, item: l.item || null, combo: l.combo || null, fac: l.fac || null, stage: l.stage, by: l.by || [], ev: l.ev || [], pond: l.pond || 0 })),
       rsc: this.rsc.filter(s => s.type !== 'wood').map(s => ({ id: s.id, name: s.name, type: s.type, stock: Math.floor(s.stock), max: s.max, x: s.x, z: s.z })),
       gateLog: this.gateLog.slice(), cat: this.cat, lenia: this.leniaInfo(), world: this.worldInfo(), trip: this.tripInfo(), dreams: this.dreams.map(d => ({ ...d })), cardVer: this.cardVer, stats: { ...this.stats }, gift: this.gift && !this.gift.seen ? this.gift : null,
     };
@@ -908,9 +964,24 @@ export class Sim {
     const l = this.lotById(lotId); if (!l || !l.door) return 0; let k = 0;
     if (!this.res.some(r => r.home === lotId) && l.beds) for (const r of [...this.res].sort((a, b) => (b.sp === l.usp) - (a.sp === l.usp)).slice(0, Math.min(n, 3))) { const o = this.lotById(r.home); if (o && o.beds) o.beds = o.beds.filter(id => id !== r.id); l.beds.push(r.id); r.home = lotId; } // 空房子：先请几位住进来
     for (const r of this.res) { if (r.home !== lotId || r.away || r.haul || k >= n) continue; this.finishTask(r); r.x = l.door[0]; r.z = l.door[1]; k++;
-      if (what === 'eat') { r.carry = 1; this.setSteps(r, [this.doo(ACT.INSIDE, 90, 'eat')], 'eat', `把吃的带回${l.name}，坐在桌边慢慢吃`); }
+      if (what === 'eat') { r.carry = 1; r.carryF = chooseFood(r.fav, this.store) || 'bread'; this.setSteps(r, [this.doo(ACT.INSIDE, 90, 'eat')], 'eat', `把吃的带回${l.name}，坐在桌边慢慢吃`); }
       else this.setSteps(r, [this.doo(ACT.INSIDE, 120, 'nap')], what === 'sleep' ? 'sleep' : 'nap', `回${l.name}打个盹`); }
     return k;
+  }
+  // 测试/截图用（不是正常玩法）：store 设粮筐库存；hungry 让某些居民饿了；eat 让某居民在 (x,z) 吃指定食物；bake 让一家店马上开烤
+  dbgFood(o = {}) {
+    const out = {};
+    if (o.store) Object.assign(this.store, o.store);
+    for (const id of o.hungry || []) { const r = this.rById(id); if (r) { r.full = Math.min(r.full, 24); r.hungryCD = 0; r.emo = 0; } }
+    for (const e of o.eat || []) { const r = this.rById(e.id); if (!r) continue; this.finishTask(r); r.x = e.x; r.z = e.z; r.carry = 1; r.carryF = e.food; r.full = Math.min(r.full, 40); this.setSteps(r, [this.doo(ACT.EAT, e.dur || 60, 'eat')], 'eat', `吃${FOODS[e.food].name}`); if (e.fav) r.fav = e.food; if (e.face) r.yaw = e.face; }
+    for (const e of o.love || []) { const r = this.rById(e.id); if (r) { r.fav = e.food; this.ate(r, e.food, '粮筐边'); } }
+    if (o.bake) {
+      let l = this.lots.find(x => x.use === 'shop' && FOODISH.has(x.shop) && x.done) || this.lots.find(x => x.done && x.use === 'home' && x.node >= 0);
+      if (l) { const w = this.res.find(r => !r.away && !r.haul) ; l.use = 'shop'; l.shop = 'bakery'; l.owner = w.id; l.done = true; l.stage = 'done'; this.ver++; this.t = Math.floor(this.t / DAY) * DAY + DAY * 0.45;
+        this.store.veg = Math.max(this.store.veg, 12); this.store.berry = Math.max(this.store.berry, 6); l.bread = o.bread ?? 2; l.cook = 0;
+        this.finishTask(w); this.tend(w, l); const st = w.steps[w.si]; if (st && st.k === 'go') { w.x = st.x; w.z = st.z; w.si++; this.beginStep(w); } out.lot = l.id; out.owner = w.id; out.x = l.x; out.z = l.z; }
+    }
+    return out;
   }
   dbgShop(lotId, n = 3) {
     const l = this.lotById(lotId); if (!l) return 0; let k = 0;
@@ -923,24 +994,24 @@ export class Sim {
   }
   serialize(now = 0) {
     const R2 = (v) => Math.round(v * 100) / 100; if (now) this.savedAt = now;
-    return JSON.stringify({ v: SAVE_VERSION, seed: this.seed, rs: this.rs, t: R2(this.t), nextId: this.nextId, nextLot: this.nextLot, store: R2(this.store), na: R2(this.nextArrival), nf: R2(this.nextFar), nw: R2(this.nextWish),
+    return JSON.stringify({ v: SAVE_VERSION, seed: this.seed, rs: this.rs, t: R2(this.t), nextId: this.nextId, nextLot: this.nextLot, store: FOOD_IDS.map(k => R2(this.store[k])), fl: this.foodLog, na: R2(this.nextArrival), nf: R2(this.nextFar), nw: R2(this.nextWish),
       mats: this.mats, gl: this.gateLog, savedAt: this.savedAt, farN: this.farN, tierT: R2(this.tierT), cardId: this.cardId, dreamId: this.dreamId, cards: this.cards, album: this.album, cat: this.cat, dreams: this.dreams, gift: this.gift, stats: this.stats,
-      res: this.res.map(r => ({ id: r.id, name: r.name, sp: r.sp, tr: r.traits, x: R2(r.x), z: R2(r.z), f: Math.round(r.full), e: Math.round(r.energy), m: Math.round(r.mood), h: r.home, aff: Object.fromEntries(Object.entries(r.aff).map(([k, v]) => [k, Math.round(v)])), w: r.wish, wcd: R2(r.wishCD), d: r.dream ? r.dream.id : 0, ha: r.hauled, bu: r.built, ow: r.owner, rc: r.recent, doing: r.doing, ls: R2(r.lastShop), mt: r.meets, fr: r.friends, la: R2(r.late), aw: r.away || 0, th: r.tripHome || 0 })),
-      lots: this.lots.map(l => ({ id: l.id, k: l.kind, u: l.use, usp: l.usp, sh: l.shop, n: l.name, x: R2(l.x), z: R2(l.z), rot: R2(l.rot), p: Math.round(l.prog * 1e4) / 1e4, pd: l.paid, d: l.done ? 1 : 0, b: l.beds, node: l.node, st: l.stage, fx: R2(l.fx), fz: R2(l.fz), ow: l.owner, fg: l.firstGuest || 0, ti: l.tier || 0, da: R2(l.doneAt || 0), up: l.upTo || 0, fs: l.forceShop || null, it: l.item || null, fc: l.fac || null, cb: l.combo || null, be: l.bridgeEnds || null, lr: l.use === 'bridge' ? l.r : 0, lt: l.landT ? R2(l.landT) : 0, wy: l.why || null, dp: l.damp ? R2(l.damp) : 0, od: l.old ? 1 : 0, cv: l.cover || 0, pn: l.pond ? R2(l.pond) : 0, by: l.by || null, ev: l.ev || null, mv: l.moving ? R2(l.moving) : 0 })),
+      res: this.res.map(r => ({ id: r.id, name: r.name, sp: r.sp, tr: r.traits, x: R2(r.x), z: R2(r.z), f: Math.round(r.full), e: Math.round(r.energy), m: Math.round(r.mood), h: r.home, aff: Object.fromEntries(Object.entries(r.aff).map(([k, v]) => [k, Math.round(v)])), w: r.wish, wcd: R2(r.wishCD), d: r.dream ? r.dream.id : 0, ha: r.hauled, bu: r.built, ow: r.owner, rc: r.recent, doing: r.doing, ls: R2(r.lastShop), mt: r.meets, fr: r.friends, la: R2(r.late), aw: r.away || 0, th: r.tripHome || 0, at: r.ate, ff: r.fav })),
+      lots: this.lots.map(l => ({ id: l.id, k: l.kind, u: l.use, usp: l.usp, sh: l.shop, n: l.name, x: R2(l.x), z: R2(l.z), rot: R2(l.rot), p: Math.round(l.prog * 1e4) / 1e4, pd: l.paid, d: l.done ? 1 : 0, b: l.beds, node: l.node, st: l.stage, fx: R2(l.fx), fz: R2(l.fz), ow: l.owner, fg: l.firstGuest || 0, ti: l.tier || 0, da: R2(l.doneAt || 0), up: l.upTo || 0, fs: l.forceShop || null, it: l.item || null, fc: l.fac || null, cb: l.combo || null, be: l.bridgeEnds || null, lr: l.use === 'bridge' ? l.r : 0, lt: l.landT ? R2(l.landT) : 0, wy: l.why || null, dp: l.damp ? R2(l.damp) : 0, od: l.old ? 1 : 0, cv: l.cover || 0, pn: l.pond ? R2(l.pond) : 0, by: l.by || null, ev: l.ev || null, mv: l.moving ? R2(l.moving) : 0, br: l.bread ? R2(l.bread) : 0 })),
       nodes: this.nodes.map(n => [R2(n.x), R2(n.z), n.k]), edges: this.edges, rsc: this.rsc.map(s => R2(s.stock)),
       proj: this.projects.filter(p => p.stage !== 'done').map(p => ({ id: p.id, st: p.stage === 'haul' ? 'gather' : p.stage, s: R2(p.s), path: p.path.map(q => [R2(q[0]), R2(q[1])]), fi: p.finder || 0 })), le: this.leniaSave(), wd: this.worldSave() });
   }
   load(S) {
-    Object.assign(this, { seed: S.seed, rs: S.rs, t: S.t, nextId: S.nextId, nextLot: S.nextLot, store: S.store, nextArrival: S.na, nextFar: S.nf, nextWish: S.nw, mats: S.mats, gateLog: S.gl || [], savedAt: S.savedAt || 0, cardId: S.cardId, dreamId: S.dreamId,
+    Object.assign(this, { seed: S.seed, rs: S.rs, t: S.t, nextId: S.nextId, nextLot: S.nextLot, store: Array.isArray(S.store) ? Object.fromEntries(FOOD_IDS.map((k, i) => [k, +S.store[i] || 0])) : splitOldStore(S.store), foodLog: S.fl || [], nextArrival: S.na, nextFar: S.nf, nextWish: S.nw, mats: S.mats, gateLog: S.gl || [], savedAt: S.savedAt || 0, cardId: S.cardId, dreamId: S.dreamId,
       cards: S.cards || [], album: S.album || [], cat: S.cat || {}, dreams: S.dreams || [], gift: S.gift || null, stats: S.stats, ver: 1, cardVer: 1, graphDirty: true, farN: S.farN || 1, tierT: S.tierT || 0 });
     for (const k of MATS) this.mats[k] = Math.max(0, Math.floor(this.mats[k] || 0));
     this.nodes = S.nodes.map(n => ({ x: n[0], z: n[1], k: n[2] })); this.edges = S.edges;
     this.rsc = RESOURCES.map((r, i) => ({ ...r, id: i, stock: S.rsc[i] ?? r.max }));
     this.lots = S.lots.map(a => { if (a.k === 'boot' && (a.it === 'boot' || a.cb === 'bootpost')) a.k = 'rboot'; /* 旧存档：Lenia 的雨靴改用红雨靴造型 */ const K = this.K[a.k]; const c = Math.cos(a.rot), s = Math.sin(a.rot); const far = a.st === 'far';
-      return { id: a.id, kind: a.k, use: a.u, usp: a.usp, shop: a.sh, name: a.n, x: a.x, z: a.z, rot: a.rot, r: K.r, prog: a.p, paid: a.pd, done: !!a.d, beds: a.b, node: a.node, stage: a.st, fx: a.fx, fz: a.fz, owner: a.ow, firstGuest: a.fg, seats: [], tier: a.ti || 0, doneAt: a.da || 0, upTo: a.up || 0, forceShop: a.fs || null, item: a.it || null, fac: a.fc || null, combo: a.cb || null, bridgeEnds: a.be || null, landT: a.lt || 0, why: a.wy || null, damp: a.dp || 0, old: !!a.od, cover: a.cv || 0, pond: a.pn || 0, by: a.by || null, ev: a.ev || null, ...(a.mv ? { moving: a.mv } : {}), look: a.st === 'landed' ? { seen: [], t2: 0, sum: 0 } : null,
+      return { id: a.id, kind: a.k, use: a.u, usp: a.usp, shop: a.sh, name: a.n, x: a.x, z: a.z, rot: a.rot, r: K.r, prog: a.p, paid: a.pd, done: !!a.d, beds: a.b, node: a.node, stage: a.st, fx: a.fx, fz: a.fz, owner: a.ow, firstGuest: a.fg, seats: [], tier: a.ti || 0, doneAt: a.da || 0, upTo: a.up || 0, forceShop: a.fs || null, item: a.it || null, fac: a.fc || null, combo: a.cb || null, bridgeEnds: a.be || null, landT: a.lt || 0, why: a.wy || null, damp: a.dp || 0, old: !!a.od, cover: a.cv || 0, pond: a.pn || 0, by: a.by || null, ev: a.ev || null, ...(a.mv ? { moving: a.mv } : {}), bread: a.br || 0, cook: 0, look: a.st === 'landed' ? { seen: [], t2: 0, sum: 0 } : null,
         door: far ? null : a.up ? [a.x, a.z] : [a.x + K.door[0] * c + K.door[1] * s, a.z - K.door[0] * s + K.door[1] * c] }; });
     this.res = []; const nid = this.nextId;
-    for (const a of S.res) { const r = this.spawn(a.sp, a.x, a.z); Object.assign(r, { id: a.id, name: a.name, traits: a.tr, full: a.f, energy: a.e, mood: a.m, home: a.h, aff: {}, wish: a.w, wishCD: a.wcd, hauled: a.ha, built: a.bu, owner: a.ow, recent: a.rc || [], doing: a.doing || '', lastShop: a.ls ?? -1e9, meets: a.mt || {}, friends: a.fr || [], late: a.la ?? 0, away: a.aw || 0, tripHome: a.th || 0 });
+    for (const a of S.res) { const r = this.spawn(a.sp, a.x, a.z); Object.assign(r, { id: a.id, name: a.name, traits: a.tr, full: a.f, energy: a.e, mood: a.m, home: a.h, aff: {}, wish: a.w, wishCD: a.wcd, hauled: a.ha, built: a.bu, owner: a.ow, recent: a.rc || [], doing: a.doing || '', lastShop: a.ls ?? -1e9, meets: a.mt || {}, friends: a.fr || [], late: a.la ?? 0, away: a.aw || 0, tripHome: a.th || 0, ate: a.at || [], fav: a.ff || FAV_FOOD[a.sp] });
       for (const k in a.aff || {}) r.aff[k] = +a.aff[k]; const d = this.dreams.find(d => d.id === a.d && d.status === 'pending'); r.dream = d || null; }
     for (const d of this.dreams) if (d.status === 'pending' && !this.res.some(r => r.dream === d)) d.status = 'expired';
     this.nextId = nid;
@@ -952,7 +1023,7 @@ export class Sim {
   // ---------------------------------------------------------------- 设施：居民去用一下（每种都有实实在在的作用，见 FAC.fx）
   facFun(r, l) {
     let mood = 7, verb = FAC[l.fac].verb; const pals = this.res.filter(o => o !== r && !o.away && o.steps[o.si] && o.steps[o.si].fn === 'facFun' && o.steps[o.si].lot === l.id);
-    if (l.fac === 'table') { if (r.full < 80 && this.store >= 1) { this.store -= 0.6; r.full = Math.min(100, r.full + 14); verb = pals.length ? '和大家围着吃了点东西' : '吃了点东西'; } mood += pals.length ? 4 : 1; for (const o of pals) this.bond(r, o, 2); }
+    if (l.fac === 'table') { const tk = r.full < 80 ? chooseFood(r.fav, this.store, 0.6) : null; if (tk) { this.store[tk] -= 0.6; this.ate(r, tk, l.name, 0.3, true); verb = pals.length ? `和大家围着吃了点${FOODS[tk].name}` : `吃了点${FOODS[tk].name}`; } mood += pals.length ? 4 : 1; for (const o of pals) this.bond(r, o, 2); }
     else if (l.fac === 'play') { if (r.sp === 'dog' || this.has(r, 'curious')) mood += 4; for (const o of pals) this.bond(r, o, 1); }
     else if (l.fac === 'stage') { const ev = this.dayT() > 0.68; mood += ev ? 5 : 1; if (ev) verb = '傍晚跳了一支舞'; for (const o of pals) this.bond(r, o, 1); }
     else if (l.fac === 'pond' && (r.sp === 'duck' || r.sp === 'chick')) mood += 5;

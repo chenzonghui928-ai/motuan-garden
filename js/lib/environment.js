@@ -190,10 +190,27 @@ export function buildResources(scene) {
   add(sg, lathe([[0.01, 0], [1.0, 0.02], [1.3, 0.4], [1.45, 1.0]], 24), M('#ffffff', { map: TX.weave, r: 0.9, ds: true }));
   add(sg, torusG(1.45, 0.1, 6, 24), M('#8a5a2c', { r: 0.9 }), 0, 1.0, 0, PI / 2);
   mergeStatic(sg);
-  const NF = 40; const food = new THREE.InstancedMesh(G('food', () => new THREE.SphereGeometry(0.22, 10, 7)), M('#ffffff', { r: 0.5 }), NF);
-  for (let i = 0; i < NF; i++) { const a = R(0, TAU), r = Math.sqrt(R(0, 1)) * 1.05; o.position.set(STORE_POS[0] + Math.cos(a) * r, 0.55 + i * 0.022, STORE_POS[1] + Math.sin(a) * r); o.scale.setScalar(R(0.8, 1.25)); o.updateMatrix(); food.setMatrixAt(i, o.matrix); col.set(pick(['#e8392e', '#ff9a2e', '#7bc043', '#ffd23f', '#9fb8cf', '#c0392b'])); food.setColorAt(i, col); }
-  food.castShadow = true; scene.add(food);
-  return (stocks, store) => { let k = 0; for (const s of RESOURCES) { if (s.type === 'berry' || s.type === 'veg') upd[k] && upd[k](stocks[RESOURCES.indexOf(s)]); if (s.type === 'berry' || s.type === 'veg') k++; } food.count = Math.round(clamp(store / 3, 0, NF)); };
+  // 筐里的食物按品种分堆（四个扇区：莓果、菜、鱼、面包），每堆最多 NF 个小模型，数量随库存涨落
+  const NF = 14; const SECT = [
+    { geo: () => new THREE.SphereGeometry(0.17, 9, 6), sc: [1, 1, 1], cols: ['#d9343a', '#c42b3a', '#e8453a'], rot: false },                       // 莓果：红球
+    { geo: () => new THREE.ConeGeometry(0.12, 0.55, 6).rotateZ(PI / 2), sc: [1, 1, 1], cols: ['#e8892e', '#f2f0e4', '#6fae3f', '#e8892e'], rot: true },      // 菜：胡萝卜、白萝卜、青菜
+    { geo: () => new THREE.SphereGeometry(0.5, 10, 6), sc: [0.95, 0.3, 0.36], cols: ['#8fb4d0', '#a9c4d8', '#7ea3c2'], rot: true },                    // 鱼：长椭球
+    { geo: () => new THREE.SphereGeometry(0.4, 10, 7), sc: [0.95, 0.62, 0.7], cols: ['#d9a04a', '#c98f3c', '#e2ae5a'], rot: true },                    // 面包：金黄小面包
+  ];
+  const foods = SECT.map((S, k) => {
+    const im = new THREE.InstancedMesh(G('foodS' + k, S.geo), M('#ffffff', { r: 0.55 }), NF); const a0 = PI / 4 + k * PI / 2;
+    for (let i = 0; i < NF; i++) {
+      const a = a0 + R(-0.62, 0.62), r = 0.32 + Math.sqrt(R(0, 1)) * 0.58; const layer = Math.floor(i / 5);
+      o.position.set(STORE_POS[0] + Math.cos(a) * r, 0.52 + layer * 0.12 + R(0, 0.04), STORE_POS[1] + Math.sin(a) * r); o.rotation.set(0, S.rot ? R(0, TAU) : 0, S.rot && k === 1 ? R(-0.3, 0.3) : 0);
+      const u = R(0.85, 1.15); o.scale.set(S.sc[0] * u, S.sc[1] * u, S.sc[2] * u); o.updateMatrix(); im.setMatrixAt(i, o.matrix); col.set(pick(S.cols)); im.setColorAt(i, col);
+    }
+    o.rotation.set(0, 0, 0); im.castShadow = true; im.count = 0; scene.add(im); return im;
+  });
+  return (stocks, store) => {
+    let k = 0; for (const s of RESOURCES) { if (s.type === 'berry' || s.type === 'veg') upd[k] && upd[k](stocks[RESOURCES.indexOf(s)]); if (s.type === 'berry' || s.type === 'veg') k++; }
+    const st = Array.isArray(store) ? store : [store * 0.3, store * 0.4, store * 0.3, 0];
+    foods.forEach((im, i) => { const n = st[i] || 0; im.count = n < 0.5 ? 0 : Math.round(clamp(Math.sqrt(n) * 2.3, 1, NF)); });
+  };
 }
 function buildField(scene, F) {
   const g = new THREE.Group(); g.position.set(F.x, 0, F.z); scene.add(g);

@@ -7,7 +7,11 @@ export const BUB_SYM = {
   2: { s: '！', c: 'w' },   // 吃惊、高兴
   3: { s: '♪', c: 'n' },   // 哼歌、玩得开心
   4: { s: '…', c: 't' },   // 聊天、商量（三个点）
+  5: { c: 'h', h: '<svg viewBox="0 0 48 40"><circle cx="14" cy="6" r="2.6" fill="#7a5a3a"/><circle cx="24" cy="6" r="2.6" fill="#7a5a3a"/><circle cx="34" cy="6" r="2.6" fill="#7a5a3a"/><ellipse cx="24" cy="26" rx="19" ry="6.5" fill="#6b4020"/><path d="M5 25c1 9 8 13 19 13s18-4 19-13z" fill="#a8703a"/><ellipse cx="24" cy="25" rx="15" ry="4.2" fill="#d79a5c"/><path d="M10 29c3 4 8 6 14 6" stroke="#c98b4c" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' },   // 饿了：一只空碗（点开看心声说想吃什么）
 };
+// 吃到最爱的：这一次吃的食物小图 + 红心（10 + 食物序号：莓果、菜、鱼、面包）
+const FOOD_PIC = ['berries', 'vegetables', 'fish', 'bread'];
+FOOD_PIC.forEach((f, i) => { BUB_SYM[10 + i] = { c: 'l', h: `<img src="assets/food/${f}-64.png" alt=""><b>♥</b>` }; });
 const DOTS = '<i></i><i></i><i></i>';
 export function createBubbles(root) {
   const map = new Map(); const seen = new Set();
@@ -22,7 +26,7 @@ export function createBubbles(root) {
       const sy = BUB_SYM[code] || BUB_SYM[2]; let e = map.get(key); if (!e) e = make(key);
       if (e.out) { e.out = 0; clearTimeout(e.tm); e.el.classList.remove('out'); e.el.classList.add('in'); }
       seen.add(key);
-      if (e.sym !== sy) { e.sym = sy; e.bs.className = 'bs ' + sy.c; if (sy.c === 't') e.bs.innerHTML = DOTS; else e.bs.textContent = sy.s; }
+      if (e.sym !== sy) { e.sym = sy; e.bs.className = 'bs ' + sy.c; if (sy.h) e.bs.innerHTML = sy.h; else if (sy.c === 't') e.bs.innerHTML = DOTS; else e.bs.textContent = sy.s; }
       w = Math.round(w); if (e.w !== w) { e.w = w; e.el.style.setProperty('--w', w + 'px'); }
       e.x = x; e.y = y; e.el.style.transform = `translate(${(x - w * 0.22).toFixed(1)}px,${(y - w * 0.74 - w * 0.1).toFixed(1)}px)`;
     },

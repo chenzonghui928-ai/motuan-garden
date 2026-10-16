@@ -2,12 +2,14 @@
 // 只读 Worker 发来的 info；玩家动作通过 api 交给 main.js（放置、种花）或发给 Worker。
 import { SP_NAME, OBJ_NAME, OBJ_KINDS, USES, MATS, MAT_NAME, SHOP, TEAM, SPECIES, STAGE_COST, GATES } from './shared/layout.js';
 import { TRAITS } from './shared/text.js';
+import { FOODS, FOOD_SHOW, FOODS_NA, FOOD_PIC, FAV_BONUS } from './shared/food.js';
 import { ITEMS, ITEM_KEYS, COMBOS, SEEDS, GIFTS, FAC, TEMPLATE_OF, WORN, matSources, movable } from './shared/items.js';
 import { SEASON_NAME, MAT_LABEL, DAMP_RATE, WX_NAME } from './shared/seasons.js';
 import { DESTS, DEST_KEYS, packOf, tripHours, TRIP_H } from './shared/journey.js';
 import { icon, hydrate, ART } from './ui-art.js';
 import { wishArt } from './wish-art.js';
 import { leniaFace } from './lenia-talk.js';
+import { play as sfx, sinceMs } from './sfx.js';
 const leniaMini = () => `<span class="lbadge lmini">${leniaFace()}</span>`;
 
 const $ = (id) => document.getElementById(id);
@@ -20,6 +22,11 @@ const mergeTitle = (type, n) => ({ wish: `今天有 ${n} 个心愿实现了`, fr
 const av = (sp, cls = '') => `<span class="av ${cls}">${icon('av:' + sp)}</span>`;
 const seeds = (p, n = 5) => `<span class="seeds">${Array.from({ length: n }, (_, i) => `<i class="seed ${p * n >= i + 0.5 ? 'on' : ''}"></i>`).join('')}</span>`;
 const itemIc = (k, cls = '') => icon('item:' + k, cls);
+// ---- 食物：图标是 Codex 交付的 assets/food/，效果文字按 shared/food.js 的数值生成
+const foodIc = (k, big = false) => `<img class="fic${big ? ' big' : ''}" src="assets/food/${FOOD_PIC[k]}-${big ? 128 : 64}.png" alt="${esc((FOODS[k] || FOODS_NA[k]).name)}">`;
+const num = (n) => String(Math.round(n * 100) / 100);
+const effectLine = (k) => { const F = FOODS[k]; return `吃一份：饱腹 +${num(F.full)}，心情 +${num(F.mood)}${F.energy ? `，精力 +${num(F.energy)}` : ''}；${F.note}。最爱吃它的会再多得 心情 +${FAV_BONUS.mood}、饱腹 +${FAV_BONUS.full}。`; };
+const eatWhen = (a) => `第${a.day}天 ${a.hm}`;
 // ---- 配方：储物箱格子角标 / 详情「搭配」栏 / 图鉴三态 / 游记配方卡
 const known = (L, id) => !!(L.recipes && L.recipes[id]);
 const recipeMark = (L, k) => COMBOS.some(c => (c.a === k || c.b === k) && known(L, c.id)) ? '<i class="rbadge" title="知道它的拼法"></i>' : '';
@@ -45,7 +52,9 @@ export function createUI(api) {
   function setTab(tab, view = null) {
     if (tab === 'tend') { close(); api.startTend(); return; }
     if (tab === 'dex') { S.albumSub = 'dex'; tab = 'album'; }
+    const wasOpen = sheet.classList.contains('open'), oldView = S.view; // 音效：开箱 / 关箱 / 换页
     S.tab = tab; S.view = view || tab;
+    if (tab === 'town') { if (wasOpen && sinceMs('drop') > 500 && sinceMs('reject') > 500) sfx('close'); } else if (!wasOpen) sfx('open'); else if (oldView !== S.view) sfx('page');
     for (const b of document.querySelectorAll('#toolbar .tool')) b.classList.toggle('on', b.dataset.tab === tab);
     document.body.classList.toggle('nugtab', tab === 'nugget');
     if (tab === 'town') { sheet.classList.remove('open'); document.body.classList.remove('sheet-open'); api.onSheet(false); }
@@ -79,6 +88,7 @@ export function createUI(api) {
     else if (a === 'giftAll') { for (const g of document.querySelectorAll('.gift')) flyHeart(g, I && I.lenia.sill.find(x => x.id === +g.dataset.v)); api.send({ type: 'lenia', act: 'gift', id: 'all' }); }
     else if (a === 'heartInfo') setTab('heart');
     else if (a === 'gateTrip') { const ds = DEST_KEYS.filter(k => DESTS[k].gate === S.gateId); const k = I && ds.find(k => I.trip.open.includes(k)); if (!k) { toast({ id: -Date.now(), type: 'notice', title: '还没听说过', text: '这条路通向的地方，大家还没去过。先从别的村口派小队出发吧。' }); return; } S.trip.dest = k; setTab('trip'); }
+    else if (a === 'foodSel') { S.foodSel = S.foodSel === v ? null : v; render(); }
     else if (a === 'thoughtRes') { hideThought(); openRes(+v); }
     else if (a === 'thoughtX') hideThought();
     else if (a === 'thoughtFollow') { hideThought(); api.follow(+v); }
@@ -117,6 +127,7 @@ export function createUI(api) {
     const el = $('heartN'), tag = $('heartTag'); el.textContent = Math.floor(n); const prev = S.heartPrev; S.heartPrev = n; if (prev == null || n === prev) return;
     const d = Math.round((n - prev) * 100) / 100; const r = tag.getBoundingClientRect(); const f = document.createElement('div'); f.className = 'heartfly ' + (d > 0 ? 'up' : 'down'); f.textContent = (d > 0 ? '+' : '-') + Math.abs(d);
     f.style.left = r.left + r.width / 2 + 'px'; f.style.top = r.bottom + 2 + 'px'; document.body.appendChild(f); setTimeout(() => f.remove(), 1300);
+    if (d > 0) sfx('coin');
     if (d > 0) { const ic = tag.querySelector('.ic'); ic.classList.remove('beat'); void ic.offsetWidth; ic.classList.add('beat'); }
   }
   function flyHeart(el, g) { if (!g) return; const r = el.getBoundingClientRect(); const f = document.createElement('div'); f.className = 'heartfly'; f.textContent = `❤ +${g.heart}`; f.style.left = r.left + r.width / 2 - 20 + 'px'; f.style.top = r.top + 'px'; document.body.appendChild(f); setTimeout(() => f.remove(), 1100); }
@@ -135,7 +146,7 @@ export function createUI(api) {
     if (S.noticeT < 0) S.noticeT = 0;
     if (!S.wishSeen) S.wishSeen = wishKey();
     $('sunHand').style.transform = `rotate(${info.dayT * 360 + 180}deg)`;
-    const W = info.world; $('dayTag').textContent = W ? `${W.sname}·第${W.sday}天 ${info.hm}` : `第${info.day}天 ${info.hm}`;
+    const W = info.world; $('dayTag').innerHTML = W ? `<span>${W.sname}·第${W.sday}天</span> <span>${info.hm}</span>` : `<span>第${info.day}天</span> <span>${info.hm}</span>`;
     if (W) { const ic = $('wxIc'); const n = 'hud-weather-' + W.wx; if (ic.dataset.ic !== n) { ic.dataset.ic = n; hydrate(ic.parentElement); } ic.parentElement.title = `${W.sname}天 · ${W.wxName}`; }
     const T = info.trip; if (T) { const tl = T.letters.find(l => !l.seen); if (tl && S.letterShown !== tl.id && info.cards) { const c = info.cards.find(c => c.id === tl.id); if (c) { S.letterShown = tl.id; showLetter(c, true); api.send({ type: 'lenia', act: 'letter', id: tl.id }); } } $('tripDot').style.display = T.exp && T.exp.phase === 'back' ? 'block' : 'none'; }
     heartTick(L.heart);
@@ -162,6 +173,7 @@ export function createUI(api) {
   function toast(c, all = S.cards) {
     if (MERGE.has(c.type)) { const same = all.filter(o => o.type === c.type && o.day === c.day); if (same.length >= 2) { for (const o of same) S.toastIds.delete(o.id); if (S.mergedToast) S.toastIds.delete(S.mergedToast.id); c = { ...c, merged: same.length }; S.mergedToast = c; } }
     if (c.type === 'notice') S.extra.push(c);
+    sfx(c.type === 'combo' ? 'combo' : 'notice');
     S.toastIds.add(c.id); while (S.toastIds.size > 9) S.toastIds.delete(S.toastIds.values().next().value); renderToasts(); // 最多留 9 条排队，多的折成「还有 N 条」
     const expire = () => { if (S.toastMode === 'list') { setTimeout(expire, 4000); return; } S.toastIds.delete(c.id); renderToasts(); }; // 玩家展开列表在看时先不收
     setTimeout(expire, SPECIAL.has(c.type) ? 12000 : 9000);
@@ -246,6 +258,7 @@ export function createUI(api) {
       ${r.away || r.trip ? `<div class="chip o" style="margin-top:8px;white-space:normal">${icon('map', 'chipic')}${esc(r.doing)}</div>` : ''}
       <div class="homerow">${homeIc(r)}<div class="grow"><div class="t"><span class="muted">住在</span> ${esc(r.home)}${r.owner ? ` · <span class="muted">店主</span> ${esc(r.owner)}` : ''}</div>
       <div class="t"><span class="muted">正在</span> ${esc(r.doing)}</div></div><span class="paw" title="爪印"><svg viewBox="0 0 40 40" width="26" height="26" style="margin-top:9px"><g fill="rgba(255,232,215,.92)"><ellipse cx="20" cy="26" rx="8" ry="7"/><circle cx="10" cy="16" r="3.6"/><circle cx="16" cy="10" r="3.6"/><circle cx="24" cy="10" r="3.6"/><circle cx="30" cy="16" r="3.6"/></g></svg></span></div>
+      <div class="sec">吃的</div><div class="t feat0">最爱吃 ${foodIc(r.fav)}<b>${FOODS[r.fav].name}</b></div>${r.ate && r.ate.length ? r.ate.map(a => `<div class="t feat0">最近吃了 ${foodIc(a.f)}<b>${FOODS[a.f].name}</b>${a.fav ? ' <i class="fheart">♥</i>' : ''}<span class="muted"> · ${eatWhen(a)}</span></div>`).join('') : '<div class="muted">还没有新的进食记录</div>'}
       <div class="sec">心里的小愿望</div><div class="t">${r.wish ? esc(r.wish.text) : '<span class="muted">现在没什么特别想要的</span>'}</div>${r.dream ? `<div class="muted">记着一个梦：${esc(r.dream)}</div>` : ''}
       <div class="sec">好朋友</div><div>${fr}</div>
       <div class="sec">最近</div>${r.recent.length ? r.recent.map(x => `<div class="t">· ${esc(x)}</div>`).join('') : '<div class="muted">刚来不久</div>'}
@@ -410,7 +423,17 @@ export function createUI(api) {
   // ---------------------------------------------------------------- 小设施 / 摆设的小卡片：名字、由什么旧物改的、谁放的、谁改的、有什么用、最近在这儿发生的事
   function viewThing(I) {
     const wrap = (inner) => `<div class="site thing"><div class="stake"></div><div class="signboard"><span class="pin l"></span><span class="pin r"></span>${closeBtn}<div class="sp paper"><div class="scroll" style="max-height:calc(100vh - 210px)">${inner}</div></div></div></div>`;
-    if (S.thingId === 'store') return wrap(`<div class="sthead">${icon('hud-basket', 'big')}<h3 class="ttlf">公共粮筐</h3></div><div class="stline">大家采来的莓果、菜和鱼都堆在这里</div><div class="sec">有什么用</div><div class="tfx">饿了的小家伙路过会顺手拿个果子吃；粮筐空了大家就得自己出去找吃的。</div><div class="sec">筐里还有</div><div class="tfx"><b>${Math.floor(I.store)}</b> 份吃的</div>`);
+    if (S.thingId === 'store') {
+      const st = I.stores || {}; const sel = S.foodSel; const favs = (k) => I.res.filter(r => r.fav === k);
+      let h = `<div class="sthead">${icon('hud-basket', 'big')}<h3 class="ttlf">公共粮筐</h3></div><div class="stline">大家一起采，一起吃</div>
+        <div class="fgrid">${FOOD_SHOW.map(k => FOODS[k] ? `<button class="fcell${sel === k ? ' sel' : ''}" data-act="foodSel" data-v="${k}">${foodIc(k)}<span class="ftag">${FOODS[k].name}<b>×${num(Math.floor(st[k] || 0))}</b></span></button>`
+          : `<button class="fcell na${sel === k ? ' sel' : ''}" data-act="foodSel" data-v="${k}">${foodIc(k)}<span class="ftag">${FOODS_NA[k].name}<b class="nb">暂无</b></span></button>`).join('')}</div>`;
+      if (sel) h += FOODS[sel] ? `<div class="tfx" style="margin-top:8px"><b>${FOODS[sel].name}</b>：${esc(effectLine(sel))}${favs(sel).length ? `<br>最爱它的：${favs(sel).map(r => esc(r.name)).join('、')}` : ''}</div>` : `<div class="tfx" style="margin-top:8px"><b>${FOODS_NA[sel].name}</b>：${FOODS_NA[sel].note}，所以这里先空着。</div>`;
+      const bk = I.lots.filter(l => l.done && l.use === 'shop' && (l.shop === 'bakery' || l.shop === 'food'));
+      if (bk.length) h += `<div class="sec">面包从哪来</div>${bk.map(l => `<div class="tev">${esc(l.name)}${l.owner ? `（店主${esc(l.owner)}）` : ''}：店里 ${num(l.bread)} 块面包${l.baking ? '，炉子正烤着' : ''}${l.baked ? `，一共烤过 ${l.baked} 块` : ''}</div>`).join('')}<div class="muted">店主拿粮筐里的菜和莓果做原料，每炉 3 份原料出 3 块面包；没有原料就烤不出来。</div>`;
+      h += `<div class="sec">最近谁吃了什么</div>${I.foodLog && I.foodLog.length ? I.foodLog.slice(0, 6).map(a => `<div class="feat" data-act="res" data-v="${a.id}">${av(a.sp, 'sm')}<span class="fwho"><b>${esc(a.name)}</b> 吃了${FOODS[a.f].name}${a.fav ? ' <i class="fheart">♥ 最爱</i>' : ''}<br><span class="muted">${eatWhen(a)}${a.at ? ' · ' + esc(a.at) : ''}</span></span>${foodIc(a.f)}</div>`).join('') : '<div class="muted">还没有新的进食记录</div>'}<div class="muted" style="text-align:center;margin-top:6px">只记录真实发生的进食</div>`;
+      return wrap(h);
+    }
     const l = I.lots.find(l => l.id === S.thingId); if (!l) return wrap(`<h3 class="ttlf">这里空了</h3><div class="muted">东西已经不在这儿了。</div>`);
     const cb = l.combo ? COMBOS.find(c => c.id === l.combo) : null; const src = cb ? [cb.a, cb.b] : l.item && ITEMS[l.item] ? [l.item] : BACK[l.kind] ? [BACK[l.kind]] : [];
     const ic = cb ? itemIc('combo_' + cb.id, 'big') : src[0] ? itemIc(src[0], 'big') : '';
@@ -525,8 +548,8 @@ export function createUI(api) {
   // 按住拿起的那一刻：箱子和详情立刻收走（只留底边一条细缝），旧物马上进放置模式、跟着手指，整个屏幕空出来看花园
   function dragArm() {
     if (!bd || bd.on) return; bd.on = true; dragTip.classList.add('hot');
-    if (api.dragPlace && api.dragPlace(bd.k, { pointerId: bd.id, pointerType: bd.touch ? 'touch' : 'mouse', clientX: bd.x, clientY: bd.y })) { bd.handed = true; bd.moved = true; document.body.classList.add('boxdrag'); sheet.classList.add('tuck'); const c = cellOf(bd.k); if (c) c.classList.add('away'); return; }
-    const c = cellOf(bd.k); if (c) c.classList.add('lift'); // 放置模式进不去（比如教程接管）：退回原来的浮起样子
+    if (api.dragPlace && api.dragPlace(bd.k, { pointerId: bd.id, pointerType: bd.touch ? 'touch' : 'mouse', clientX: bd.x, clientY: bd.y })) { sfx('pickup'); bd.handed = true; bd.moved = true; document.body.classList.add('boxdrag'); sheet.classList.add('tuck'); const c = cellOf(bd.k); if (c) c.classList.add('away'); return; }
+    sfx('pickup'); const c = cellOf(bd.k); if (c) c.classList.add('lift'); // 放置模式进不去（比如教程接管）：退回原来的浮起样子
     try { body.setPointerCapture(bd.id); } catch (e) { /* 不支持就算了 */ }
   }
   body.addEventListener('pointerdown', (e) => {
@@ -560,7 +583,7 @@ export function createUI(api) {
   body.addEventListener('contextmenu', (e) => { if (e.target.closest('.slot')) e.preventDefault(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && bd && !bd.handed) dragStop(); });
   // 放置模式那边松手之后回来：放下了 → 关箱子；没放成 → 旧物飞回格子、箱子弹出来，并说明原因
-  function boxDragDone() { document.body.classList.remove('boxdrag'); sheet.classList.remove('tuck'); dragStop(); close(); }
+  function boxDragDone() { sfx('drop'); document.body.classList.remove('boxdrag'); sheet.classList.remove('tuck'); dragStop(); close(); }
   function boxDragBack(pt, why, pick) {
     const k = bd && bd.k; if (pick && k != null) { S.boxSel = k; render(); } document.body.classList.remove('boxdrag'); dragStop(); if (k == null) { sheet.classList.remove('tuck'); return; }
     const g = makeGhost(k); putGhost(g, pt.x, pt.y);
@@ -570,7 +593,7 @@ export function createUI(api) {
     const an = g.animate([{ left: pt.x + 'px', top: pt.y + 'px', opacity: 1 }, { left: to[0] + 'px', top: to[1] + 'px', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.3,1.3,.5,1)', fill: 'forwards' });
     const fin = () => { g.remove(); cleanCells(); const c2 = cellOf(k); if (c2) c2.animate([{ transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'ease-out' }); };
     an.onfinish = fin; setTimeout(() => { if (g.isConnected) fin(); }, 700);
-    if (why) setTip(why, true, 2600);
+    if (why) { setTip(why, true, 2600); sfx('reject'); }
   }
   const boxPointIn = (x, y) => { const r = frame.getBoundingClientRect(); return sheet.classList.contains('tuck') ? y > r.top - 4 : x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
   function holdGift(on) { S.giftHold = on; if (!on && S.pendingGift) { const g = S.pendingGift; S.pendingGift = null; if (!g.seen && S.giftShown !== g.id) { S.giftShown = g.id; showGift(g); } } }

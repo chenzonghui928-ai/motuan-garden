@@ -99,6 +99,21 @@ export function matName(k) { return MAT_NAME[k]; }
 export function spName(sp) { return SP_NAME[sp]; }
 export function objName(k) { return OBJ_NAME[k]; }
 
+// ---------------------------------------------------------------- 吃了什么：最近记录里的一句话（按食物和在哪儿吃变化，不重复“在XX在XX”）
+const EAT_VERB = { berry: ['抓了一把莓果，酸酸甜甜地吃光了', '剥着莓果一颗颗吃，嘴角红红的'], veg: ['咔嚓咔嚓啃了棵脆菜', '把水灵灵的菜叶嚼得清清爽爽'], fish: ['吃了条鲜鱼，连鱼尾都舍不得剩', '细细地吃了一条鱼，吃得满足'], bread: ['吃了块暖烘烘的面包', '捧着面包，一口一口咬得很香'] };
+export function eatText(food, fav, where, seed = 0) {
+  const L = EAT_VERB[food] || EAT_VERB.veg; const v = L[Math.abs(seed + (where ? where.length : 0)) % L.length]; const w = where && where !== '粮筐边' ? `在${where}` : '';
+  return `${w}${v}${fav ? '——正好是最爱吃的！' : ''}`;
+}
+export const HUNGRY_LINES = [
+  c => `肚子咕咕叫……好想吃${c.a}啊。${c.b ? `可粮筐里的${c.a}没有了，${c.b}也行吧。` : ''}`,
+  c => `饿了饿了，现在要是有${c.a}就好了。${c.b ? `（${c.a}不够了，只好先吃点${c.b}。）` : ''}`,
+  c => `好饿呀……我想吃${c.a}。${c.b ? `没有的话，${c.b}也可以凑合。` : '去粮筐看看还有没有。'}`,
+];
+export const FAV_LINES = [
+  c => `${c.a}！这是我最爱吃的，真幸福♪`, c => `吃到${c.a}啦，整只都暖洋洋的♪`, c => `${c.b && c.b !== '粮筐边' ? c.b + '的' : ''}${c.a}最合我口味了！`,
+];
+
 // ---------------------------------------------------------------- 心声：点头顶有气泡的居民，弹出它此刻在想什么
 // 只用真实状态填空：冒气泡的原因（r.bub.why，由模拟在冒泡那一刻写下）、正在做的事（doing）、心愿、聊天的对象和最近发生的事。
 // 每种原因几句，按居民编号 + 天数挑一句（同一个气泡里不会来回换句子）。
@@ -117,6 +132,8 @@ const THOUGHT = {
   move: [c => c.b || `${c.a}要搬家啦！`],
   nugget: [c => `是那个白白软软的团子！它${c.a || '又跳过来了'}……`, c => `团子团子！你从哪儿来的呀？`, c => `那个白团子身上有好闻的味道，是大好人家的吗？`],
   lenia: [c => `那边……是不是有个好大好大的${c.a || '身影'}？`, c => `嘘——好像是大好人！我看见${c.a || '她'}了！`, c => `${c.a || '那个大大的影子'}……会不会就是给我们送东西的大好人？`],
+  hungry: HUNGRY_LINES,
+  favEat: FAV_LINES,
   mat: [c => `${c.b}还缺${c.a}，我得去${c.c}找找看……`, c => `${c.a}、${c.a}……${c.c}那边应该有，我去找找。`],
 };
 export function thoughtOf(r, day = 0) {

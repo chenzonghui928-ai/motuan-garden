@@ -92,11 +92,11 @@ export function shopSpots(lot, K) { // 返回 { tables:[[x,z]], seats:[[x,z,face
 // ---------------------------------------------------------------- resources & road graph
 export const FISH1 = bankPoint(19, 30, 4.4), FISH2 = bankPoint(40, 5, 4.4);
 export const RESOURCES = [
-  { type: 'berry', name: '东边的莓果丛', x: -31, z: -21, r: 3.2, max: 30, regen: 0.11 },
-  { type: 'berry', name: '南坡的莓果丛', x: 7, z: -36, r: 3.2, max: 30, regen: 0.11 },
-  { type: 'veg', name: '菜田', x: -35, z: 9, r: 6.5, hx: 5.5, hz: 3.6, max: 40, regen: 0.14 },
-  { type: 'fish', name: '柳树下的钓点', x: FISH1[0], z: FISH1[1], r: 2.2, ang: FISH1[2], max: 36, regen: 0.12 },
-  { type: 'fish', name: '小桥边的钓点', x: FISH2[0], z: FISH2[1], r: 2.2, ang: FISH2[2], max: 36, regen: 0.12 },
+  { type: 'berry', name: '东边的莓果丛', x: -31, z: -21, r: 3.2, max: 30, regen: 0.013 },
+  { type: 'berry', name: '南坡的莓果丛', x: 7, z: -36, r: 3.2, max: 30, regen: 0.013 },
+  { type: 'veg', name: '菜田', x: -35, z: 9, r: 6.5, hx: 5.5, hz: 3.6, max: 40, regen: 0.02 },
+  { type: 'fish', name: '柳树下的钓点', x: FISH1[0], z: FISH1[1], r: 2.2, ang: FISH1[2], max: 36, regen: 0.013 },
+  { type: 'fish', name: '小桥边的钓点', x: FISH2[0], z: FISH2[1], r: 2.2, ang: FISH2[2], max: 36, regen: 0.013 },
   { type: 'wood', name: '木枝堆', x: WOOD_POS[0], z: WOOD_POS[1], r: 3.0, max: 1e9, regen: 0 },
 ];
 export const GATES = [[-50, -9], [-9, -50], [36, -37], [-38, 33]];

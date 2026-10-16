@@ -6,6 +6,7 @@
 // 浏览器自动播放限制：第一次点击/触摸后才创建 AudioContext 开始播放。页面隐藏时淡出暂停，回来淡入。
 import { settings, setSetting, onSetting } from './settings.js';
 import { icon, hydrate } from './ui-art.js';
+import { bindSfx, wireClicks, SFX_GAIN, play as sfxPlay } from './sfx.js';
 
 export const TRACKS = {
   'morning-light': '晨光', 'morning-light-alt': '晨光（另一版）', 'suno-morning-light-1': '晨光小调 · 一', 'suno-morning-light-2': '晨光小调 · 二', 'morning-walk': '早上散步', 'bread-by-the-window': '窗边的面包',
@@ -29,6 +30,7 @@ const rnd = (a, b) => a + (b - a) * Math.random();
 export function createAudio() {
   const A = { ctx: null, master: null, music: null, amb: null, decks: [], active: 0, cur: null, lastWx: null, failed: false, recent: {}, hidden: false, amb2: null, nextBird: 0, nextCricket: 0, crickets: 0, st: { dayT: 0.3, wx: 'sun', season: 'spring', rain: 0, near: 0.3 }, errors: 0, started: false, switches: 0 };
   const S = settings();
+  bindSfx({ ctx: () => A.ctx, out: () => A.sfxBus, hidden: () => A.hidden }); wireClicks(); // 按键音效：统一监听按钮点击，AudioContext 创建前不出声也不报错
   // ---------------------------------------------------------------- 启动（需要一次用户手势）
   function boot() {
     if (A.ctx) { if (A.ctx.state === 'suspended' && !A.hidden) A.ctx.resume(); return; }
@@ -36,6 +38,7 @@ export function createAudio() {
     const ctx = A.ctx = new AC();
     A.master = ctx.createGain(); A.master.gain.value = 0; A.master.connect(ctx.destination);
     A.music = ctx.createGain(); A.music.connect(A.master); A.amb = ctx.createGain(); A.amb.connect(A.master);
+    A.sfxBus = ctx.createGain(); A.sfxBus.gain.value = S.vol * SFX_GAIN; A.sfxBus.connect(A.master); // 按键音效（js/sfx.js）：只跟总音量 vol，不受音乐/环境音开关影响
     for (let i = 0; i < 2; i++) {
       const el = new Audio(); el.preload = 'auto'; el.crossOrigin = 'anonymous'; el.setAttribute('playsinline', '');
       const g = ctx.createGain(); g.gain.value = 0; let src = null;
@@ -54,7 +57,7 @@ export function createAudio() {
   // ---------------------------------------------------------------- 音量
   function applyVol(tc = 0.25) {
     if (!A.ctx) return; const t = A.ctx.currentTime; const v = S.vol;
-    A.music.gain.setTargetAtTime(S.music ? v : 0, t, tc); A.amb.gain.setTargetAtTime(S.amb ? v * 0.8 : 0, t, tc);
+    A.music.gain.setTargetAtTime(S.music ? v : 0, t, tc); A.amb.gain.setTargetAtTime(S.amb ? v * 0.8 : 0, t, tc); if (A.sfxBus) A.sfxBus.gain.setTargetAtTime(v * SFX_GAIN, t, tc);
   }
   onSetting((k, v) => {
     if (!A.ctx) return; applyVol();
@@ -165,7 +168,7 @@ export function createAudio() {
   let ui = null;
   function mount() { ui = musicBox(api); return ui; }
   const api = {
-    boot, update, next, cheer, mount, groupFor,
+    boot, update, next, cheer, mount, groupFor, sfx: sfxPlay,
     async seekNearEnd(sec = 4) { // 测试用：快进到接近结尾（静态服务器不支持 Range 时改用 blob 载入才能 seek）
       const d = A.decks[A.active], el = d.el; if (!d.name) return;
       const blob = await (await fetch(BASE + d.name + '.mp3')).blob(); el.src = URL.createObjectURL(blob);
@@ -186,6 +189,8 @@ function musicBox(audio) {
     <div class="row"><button class="woodbtn" data-mb="music"></button><button class="woodbtn" data-mb="amb"></button></div>
     <label class="vol">音量<input type="range" min="0" max="100" step="1" data-mb="vol"></label>
     <div class="row"><button class="woodbtn" data-mb="next">下一首</button><button class="woodbtn" data-mb="talk"></button></div>
+    <div class="row"><button class="woodbtn" data-mb="fastq"></button></div>
+    <div class="row"><button class="woodbtn" data-mb="sfx"></button></div>
     <div class="hint">曲子会跟着花园里的时间和天气自己换；下雨天换成雨天的曲子。</div>`;
   hydrate(el);
   const now = el.querySelector('.now'), vol = el.querySelector('[data-mb="vol"]');
@@ -195,7 +200,9 @@ function musicBox(audio) {
     const st = audio.state();
     B('music').textContent = S.music ? '音乐：开' : '音乐：关'; B('music').classList.toggle('on', S.music);
     B('amb').textContent = S.amb ? '环境音：开' : '环境音：关'; B('amb').classList.toggle('on', S.amb);
+    B('sfx').textContent = S.sfx ? '按键音效：开' : '按键音效：关'; B('sfx').classList.toggle('on', S.sfx);
     B('talk').textContent = S.talk ? 'Lenia 说话：开' : 'Lenia 说话：关'; B('talk').classList.toggle('on', S.talk);
+    B('fastq').textContent = S.fastq ? '倍速时省画质：开' : '倍速时省画质：关'; B('fastq').classList.toggle('on', S.fastq);
     if (document.activeElement !== vol) vol.value = Math.round(S.vol * 100);
     const h = !st.started ? '点一下画面，音乐盒就开始转了。<small>（浏览器要先有一次点击才能出声）</small>' : !S.music ? '音乐关着。<small>环境音和小动物的声音还在。</small>' : st.title ? `正在播放：《${st.title}》<small>${GROUP_NAME[st.group]}的曲子${st.want !== st.group ? ' · 放完后换成' + GROUP_NAME[st.want] + '的' : ''}</small>` : '正在挑曲子……';
     if (h !== lastNow) { now.innerHTML = h; lastNow = h; }
@@ -206,7 +213,7 @@ function musicBox(audio) {
   el.addEventListener('click', (e) => {
     const b = e.target.closest('[data-mb]'); if (!b) return; const k = b.dataset.mb;
     if (k === 'close') setOpen(false);
-    else if (k === 'music' || k === 'amb' || k === 'talk') setSetting(k, !S[k]);
+    else if (k === 'music' || k === 'amb' || k === 'talk' || k === 'fastq' || k === 'sfx') setSetting(k, !S[k]);
     else if (k === 'next') { if (!S.music) setSetting('music', true); audio.next(); }
     refresh();
   });

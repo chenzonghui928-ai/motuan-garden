@@ -9,7 +9,7 @@ import { movable, moveCheck } from '../shared/items.js';
 const ACT_WALK = 1;
 
 const LOOK_R = 34, MAX_WATCH = 5, HOLD_MS = 5 * 60e3; // HOLD_MS：教程“等一等”最长真实 5 分钟
-export const EMO = { Q: 1, WOW: 2, NOTE: 3, TALK: 4 };
+export const EMO = { Q: 1, WOW: 2, NOTE: 3, TALK: 4, HUNGRY: 5, LOVE: 10 }; // 5 饿了（空碗）、10～13 吃到最爱的（10 + 食物序号：莓果、菜、鱼、面包）
 
 export function installLenia(Sim) {
   const P = Sim.prototype;

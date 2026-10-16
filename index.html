@@ -51,7 +51,7 @@
   /* ---------------------------------------------------------------- HUD */
   #hud{position:fixed;left:10px;right:10px;top:calc(var(--safe-t) + 8px);display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:3}
   #hud>*{pointer-events:auto}
-  #sun{position:relative;width:68px;height:68px;flex:none;grid-row:1/3;grid-column:1;align-self:center}
+  #sun{position:relative;width:68px;height:68px;flex:none;grid-row:1;grid-column:1;align-self:center}
   #sun .disc{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,#f8e3b0 0 44%,#e8c27c 45% 49%,#f4d798 50% 60%,rgba(0,0,0,0) 61%);filter:drop-shadow(0 4px 4px rgba(60,30,10,.35))}
   #sun .rays{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(from 0deg,#d79a3e 0 6deg,rgba(0,0,0,0) 6deg 30deg);-webkit-mask:radial-gradient(circle,rgba(0,0,0,0) 0 56%,#000 57% 70%,rgba(0,0,0,0) 71%);mask:radial-gradient(circle,rgba(0,0,0,0) 0 56%,#000 57% 70%,rgba(0,0,0,0) 71%)}
   #sun .ring{position:absolute;inset:3px;border-radius:50%;background:conic-gradient(#e7a64a 0 15deg,#f2c46e 15deg 30deg,#e7a64a 30deg 45deg,#f2c46e 45deg 60deg,#e7a64a 60deg 75deg,#f2c46e 75deg 90deg,#e7a64a 90deg 105deg,#f2c46e 105deg 120deg,#e7a64a 120deg 135deg,#f2c46e 135deg 150deg,#e7a64a 150deg 165deg,#f2c46e 165deg 180deg,#e7a64a 180deg 195deg,#f2c46e 195deg 210deg,#e7a64a 210deg 225deg,#f2c46e 225deg 240deg,#e7a64a 240deg 255deg,#f2c46e 255deg 270deg,#e7a64a 270deg 285deg,#f2c46e 285deg 300deg,#e7a64a 300deg 315deg,#f2c46e 315deg 330deg,#e7a64a 330deg 345deg,#f2c46e 345deg 360deg);-webkit-mask:radial-gradient(circle,rgba(0,0,0,0) 0 62%,#000 63%);mask:radial-gradient(circle,rgba(0,0,0,0) 0 62%,#000 63%)}
@@ -70,8 +70,9 @@
   #wxBtn{flex:none;width:44px;height:44px;padding:0;display:flex;align-items:center;justify-content:center;transition:transform .1s}
   #wxBtn:active{transform:scale(.92)}
   #wxBtn .ic{width:32px;height:32px}
-  #spdRow{grid-column:2;grid-row:2;display:flex;gap:6px;min-width:0}
-  #spdRow .spd{flex:1 1 0;min-width:0;max-width:88px;height:44px;border:0;padding:0;background:url(assets/uifix/speed-1x-normal.png) center/100% 100% no-repeat;filter:drop-shadow(0 2px 2px rgba(60,30,10,.3));-webkit-tap-highlight-color:transparent;transition:transform .07s}
+  #spdRow{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(6,1fr);gap:4px 6px;min-width:0;justify-items:stretch} /* 手机：第一排 1/3/10，第二排 30/60 居中；点击区高 48px */
+  #spdRow .spd:nth-child(-n+3){grid-column:span 2}#spdRow .spd:nth-child(4){grid-column:2/4}#spdRow .spd:nth-child(5){grid-column:4/6}
+  #spdRow .spd{min-width:0;height:48px;border:0;padding:0;background:url(assets/uifix/speed-1x-normal.png) center/100% 100% no-repeat;filter:drop-shadow(0 2px 2px rgba(60,30,10,.3));-webkit-tap-highlight-color:transparent;transition:transform .07s}
   #spdRow .spd[data-spd="3"]{background-image:url(assets/uifix/speed-3x-normal.png)}
   #spdRow .spd[data-spd="10"]{background-image:url(assets/uifix/speed-10x-normal.png)}
   #spdRow .spd.on{background-image:url(assets/uifix/speed-1x-selected.png)}
@@ -80,13 +81,64 @@
   #spdRow .spd:active{background-image:url(assets/uifix/speed-1x-pressed.png);transform:translateY(2px)}
   #spdRow .spd[data-spd="3"]:active{background-image:url(assets/uifix/speed-3x-pressed.png)}
   #spdRow .spd[data-spd="10"]:active{background-image:url(assets/uifix/speed-10x-pressed.png)}
+  #spdRow .spd[data-spd="30"]{background-image:url(assets/uifix/speed-30x-normal.png)}
+  #spdRow .spd[data-spd="60"]{background-image:url(assets/uifix/speed-60x-normal.png)}
+  #spdRow .spd[data-spd="30"].on{background-image:url(assets/uifix/speed-30x-selected.png)}
+  #spdRow .spd[data-spd="60"].on{background-image:url(assets/uifix/speed-60x-selected.png)}
+  #spdRow .spd[data-spd="30"]:active{background-image:url(assets/uifix/speed-30x-pressed.png)}
+  #spdRow .spd[data-spd="60"]:active{background-image:url(assets/uifix/speed-60x-pressed.png)}
+  /* 快进画质：暖色暗角只在屏幕边缘（最高不透明度约 7%），中央保持自然绿色；0.5 秒渐变 */
+  #fastfx{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity .5s ease;background:radial-gradient(ellipse at 50% 48%,rgba(255,214,150,0) 58%,rgba(255,196,120,.045) 82%,rgba(190,110,50,.07) 100%)}
+  #fastfx[data-spd="60"]{background:radial-gradient(ellipse at 50% 48%,rgba(255,214,150,0) 54%,rgba(255,196,120,.05) 80%,rgba(190,110,50,.08) 100%)}
+  body.fast #fastfx{opacity:1}
+  body.tank #fastfx,body.inside #fastfx{opacity:0}
+  /* “快进中”小纸签：挂在木牌下面左侧，不遮花园主体 */
+  #fastTag{position:absolute;left:12px;top:100%;margin-top:4px;z-index:1;pointer-events:none;opacity:0;transform:translateY(-6px);transition:opacity .5s,transform .5s;display:flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 8px;border-radius:6px;background:var(--noise),linear-gradient(180deg,#fbf0d4,#ecd9ab);box-shadow:inset 0 0 0 2px #d6ac52,0 2px 0 rgba(80,40,10,.35);color:var(--ink);font:800 14px var(--round);white-space:nowrap}
+  #fastTag i{font-style:normal;display:inline-block;animation:fastTick 2.4s ease-in-out infinite}
+  @keyframes fastTick{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+  body.fast #fastTag{opacity:1;transform:none}
+  body.tank #fastTag,body.inside #fastTag{opacity:0}
+  @media (prefers-reduced-motion:reduce){#fastTag i{animation:none}#fastfx,#fastTag{transition:none}}
   #hudR{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
-  @media (min-width:900px){#spdRow .spd{height:48px}#dayTag,#wxBtn{height:48px}#wxBtn{width:48px}#sun{width:72px;height:72px}}
+  @media (min-width:900px){#hudL{width:600px;grid-template-rows:64px auto;padding:10px 24px 16px;column-gap:14px}#spdRow{display:flex;gap:8px;justify-content:center}#spdRow .spd{flex:none;width:104px;grid-column:auto!important}#dayTag,#wxBtn{height:48px}#wxBtn{width:48px}#sun{width:72px;height:72px}}
+  /* 手机紧凑木牌：只一行（时钟、日期、天气、当前倍速按钮）；五档在按钮下展开成一条木条。电脑和平板不变 */
+  #spdCur{display:none}
+  #dayTag span+span{margin-left:.4em}
   @media (max-width:599px){
-    #hud{flex-wrap:wrap;gap:6px}
+    #hud{gap:4px}
+    #hudL{display:flex;align-items:center;gap:8px;height:68px;padding:0 12px 0 10px;border-radius:12px}
+    #hudL #sun{width:48px;height:48px}
+    #hudL #sun .hand{height:15px;margin-top:-13px;transform-origin:50% 13px;width:4px}
+    #hudL .hudTop{flex:1;display:flex;gap:6px;min-width:0}
+    #dayTag{height:48px;font-size:14px;letter-spacing:0;line-height:1.2;padding:0 2px;flex-direction:column;justify-content:center}#dayTag span{display:block;text-align:center}#dayTag span+span{font-size:13px;margin-left:0}
+    body.spdopen #hud{z-index:5}
+    #wxBtn{width:44px;height:48px}#wxBtn .ic{width:30px;height:30px}
+    #spdCur{display:flex;flex:none;align-items:center;justify-content:center;gap:6px;height:48px;min-width:96px;padding:0 10px;border-radius:24px;border:0;cursor:pointer;font:800 17px var(--round);color:var(--ink);background:var(--noise),linear-gradient(180deg,#fff6dc,#f0dcae);box-shadow:inset 0 0 0 2px #d6ac52,0 2px 0 rgba(80,40,10,.4);-webkit-tap-highlight-color:transparent;transition:transform .07s}
+    #spdCur:active{transform:translateY(1px);filter:brightness(.92)}
+    #spdCur .sico{width:0;height:0;border-style:solid;border-width:7px 0 7px 12px;border-color:transparent transparent transparent #2f8a3c}
+    #spdCur .chev{width:8px;height:8px;border-right:3px solid currentColor;border-bottom:3px solid currentColor;transform:rotate(45deg) translate(-2px,-2px);transition:transform .12s}
+    #spdCur[data-fast="1"]{background:var(--noise),linear-gradient(180deg,#ffe3a0,#f1b94e);color:#5a3410}
+    #spdCur[data-fast="1"] .sico{width:auto;height:auto;border:0;font-style:normal;font-size:17px;line-height:1}
+    #spdCur[data-fast="1"] .sico:before{content:"\23F3"}
+    #spdCur[aria-expanded="true"]{background:var(--noise),linear-gradient(180deg,#4a8a3c,#2f6a2a);color:#fff7e0}
+    #spdCur[aria-expanded="true"][data-fast="1"]{background:var(--noise),linear-gradient(180deg,#f1b94e,#d89a2e);color:#5a3410}
+    #spdCur[aria-expanded="true"] .sico{border-left-color:#fff7e0}
+    #spdCur[aria-expanded="true"] .chev{transform:rotate(-135deg) translate(-2px,-2px)}
+    #spdRow{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:5;grid-template-columns:repeat(5,1fr);gap:6px;height:72px;box-sizing:border-box;padding:0 8px;align-items:center;background:url(assets/uifix/speed-dropdown-bg.png) center/100% 100% no-repeat;filter:drop-shadow(0 3px 3px rgba(60,30,10,.35))}
+    #spdRow.open{display:grid;animation:spdDrop .14s ease-out}
+    #spdRow .spd{grid-column:auto!important;height:44px;min-width:0}
+    @keyframes spdDrop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+    @media (prefers-reduced-motion:reduce){#spdRow.open{animation:none}}
+    #fastTag{display:none}
+    body.spdopen #hudR{visibility:hidden}
+    #hudR #basketBtn{width:44px;height:44px}
+    #hudR .hudrow{gap:4px}#hudR #heartTag{height:44px;box-sizing:border-box;padding:0 8px 0 6px}
+    #hudR .enamel.sm{width:44px;height:44px}
+  }
+  @media (max-width:599px){
+    #hud{flex-wrap:wrap;gap:4px}
     #hudL{width:100%}
     #hudR{flex-direction:row-reverse;align-items:center;width:100%;gap:6px;justify-content:flex-start;margin-left:0}
-    #hudR #basketBtn{width:56px;height:56px}
   }
   #basketBtn{position:relative;width:78px;height:78px;flex:none}
   #basketBtn .ic{width:100%;height:100%;filter:drop-shadow(0 5px 4px rgba(60,30,10,.35))}
@@ -157,6 +209,8 @@
   .bub .bs{font:900 calc(var(--w,40px)*.5)/1 var(--round);color:var(--tomato);display:flex;gap:calc(var(--w,40px)*.075);align-items:center;padding-bottom:2%}
   .bub .bs.q{color:var(--enamel)}.bub .bs.n{color:var(--leaf)}
   .bub .bs.t i{display:block;width:calc(var(--w,40px)*.115);height:calc(var(--w,40px)*.115);border-radius:50%;background:#6a5a50}.bub .bs.t i:nth-child(2){background:#ff7aa0}
+  .bub .bs.h svg{width:calc(var(--w,40px)*.62);height:auto;display:block;margin-top:2%}
+  .bub .bs.l{gap:calc(var(--w,40px)*.04);color:#e4414f}.bub .bs.l img{width:calc(var(--w,40px)*.5);height:calc(var(--w,40px)*.5);object-fit:contain;display:block}.bub .bs.l b{font:900 calc(var(--w,40px)*.34)/1 var(--round)}
   @keyframes bubIn{from{scale:.1;opacity:0}to{scale:1;opacity:1}}@keyframes bubOut{to{scale:.1;opacity:0}}@keyframes bubBob{from{translate:0 0}to{translate:0 -3px}}
   /* 心声框：放大版的同款气泡 */
   #thought{position:fixed;left:0;top:0;z-index:4;width:min(300px,calc(100vw - 20px));display:none;pointer-events:auto}
@@ -235,7 +289,7 @@
   #dragTip.on{display:block}
   #dragTip.hot{box-shadow:0 0 0 3px #6fc24f,0 4px 10px rgba(40,20,5,.35)}
   #dragTip.bad{color:var(--tomato2);box-shadow:0 0 0 3px #e0604a,0 4px 10px rgba(40,20,5,.35)}
-  #sheet.tuck .frame{transform:translateY(calc(100% - 26px));transition-duration:.18s;transition-timing-function:ease-out}
+  #sheet.tuck .frame{transform:translateY(calc(100% - 26px));transition-duration:.1s;transition-timing-function:ease-out}
   #sheet.tuck .frame:after{content:"拖回这里放回";position:absolute;left:50%;top:3px;transform:translateX(-50%);font:800 12px var(--round);color:#fff3d8;text-shadow:0 1px 2px rgba(40,20,5,.8);white-space:nowrap;z-index:6;pointer-events:none}
   body.boxdrag #dragTip{display:none}
   body.boxdrag #placebar{transform:translate(-50%,160%)!important}
@@ -492,6 +546,16 @@
   .site .mt em{font-style:normal;font-weight:900;color:#3a6a2c}.site .mt.lack{background:#f8d6cf;box-shadow:inset 0 0 0 2px #d9473b}.site .mt.lack em,.site .mt.lack b{color:#b2321f}
   .site .workers{display:flex;flex-wrap:wrap;gap:8px}
   .thing .tsrcs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.thing .tsrc{display:inline-flex;align-items:center;gap:4px;font:700 14px var(--round)}.thing .tsrc .ic{width:30px;height:30px}.thing .arrow{color:#9a6a3a;font-weight:900}
+  /* 公共粮筐：木格子按品种摆，每格一个图标 + 名字数量纸签；最近谁吃了什么 */
+  .thing .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .thing .fcell{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 4px;border:0;border-radius:12px;background:linear-gradient(#7b4c26,#5f3a1b);box-shadow:inset 0 3px 6px rgba(30,15,5,.55),0 1px 0 rgba(255,225,170,.6);text-align:left;font:inherit;cursor:pointer;min-height:64px}
+  .thing .fcell .fic{width:52px;height:52px;flex:none;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(20,8,0,.45))}
+  .thing .fcell .ftag{flex:1;min-width:0;text-align:center;background:var(--paper,#fbf1da);border-radius:8px;padding:3px 4px 2px;font:800 13px/1.2 var(--round);color:#5a3a1a;box-shadow:0 0 0 1.5px #d6ac52 inset}
+  .thing .fcell .ftag b{display:block;font:900 20px/1.15 var(--round);color:#3e2410}.thing .fcell .ftag b.nb{font-size:15px;color:#9a8460}
+  .thing .fcell.na .fic{opacity:.55;filter:grayscale(.5)}.thing .fcell.sel{outline:3px solid #ffd36a;outline-offset:1px}
+  .thing .feat{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:10px;background:rgba(255,248,228,.7);margin-bottom:4px;cursor:pointer}.thing .feat .av{width:34px;height:34px;flex:none}.thing .feat .fwho{flex:1;min-width:0;font-size:14px;line-height:1.35}.thing .feat .fic{width:36px;height:36px;flex:none;object-fit:contain}
+  .fheart{font-style:normal;color:#e4414f;font-weight:800;font-size:13px}
+  .feat0{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.feat0 .fic{width:24px;height:24px;object-fit:contain}
   .thing .tfx{font-size:14px;line-height:1.5;padding:6px 8px;border-radius:8px;background:rgba(255,248,228,.7)}.thing .tev{font-size:13px;line-height:1.45;padding:3px 0;border-bottom:1px dashed rgba(120,80,40,.25)}
   .site .workers button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:56px;min-height:44px;padding:2px;border:0;background:none;font:700 13px var(--round);color:var(--ink)}
   .site .workers .av{width:46px;height:46px}
@@ -603,11 +667,13 @@
 <div id="golds"></div>
 <div id="follow" class="wood"><span class="av" id="followAv"></span><div class="fw"><b id="followName"></b><span id="followDo"></span></div><button class="woodbtn green" id="followCard">名片</button><button class="woodbtn" id="followStop">不跟了</button></div>
 <div id="tag"></div>
+<div id="fastfx"></div>
 <div id="hud">
   <div id="hudL" class="wood">
     <div id="sun" title="太阳时钟"><div class="rays"></div><div class="ring"></div><div class="disc"></div><div class="face"></div><div class="art"></div><div class="hand" id="sunHand"></div><div class="pinc"></div></div>
-    <div class="hudTop"><div id="dayTag" class="plate">第1天</div><button id="wxBtn" class="plate press" data-act="wxInfo" title="天气" aria-label="天气"><span class="ic" id="wxIc" data-ic="hud-weather-sun"></span></button></div>
-    <div id="spdRow" role="group" aria-label="小镇时间倍速"><button class="spd" data-spd="1" aria-label="1倍速" aria-pressed="false" title="小镇时间 1×"></button><button class="spd" data-spd="3" aria-label="3倍速" aria-pressed="false" title="小镇时间 3×"></button><button class="spd" data-spd="10" aria-label="10倍速" aria-pressed="false" title="小镇时间 10×"></button></div>
+    <div class="hudTop"><div id="dayTag" class="plate">第1天</div><button id="wxBtn" class="plate press" data-act="wxInfo" title="天气" aria-label="天气"><span class="ic" id="wxIc" data-ic="hud-weather-sun"></span></button><button id="spdCur" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="spdRow" aria-label="当前1倍速，展开速度选择" data-spd="1"><i class="sico"></i><b>1X</b><i class="chev"></i></button></div>
+    <div id="spdRow" role="group" aria-label="小镇时间倍速"><button class="spd" data-spd="1" aria-label="1倍速" aria-pressed="false" title="小镇时间 1×"></button><button class="spd" data-spd="3" aria-label="3倍速" aria-pressed="false" title="小镇时间 3×"></button><button class="spd" data-spd="10" aria-label="10倍速" aria-pressed="false" title="小镇时间 10×"></button><button class="spd" data-spd="30" aria-label="30倍速" aria-pressed="false" title="小镇时间 30×"></button><button class="spd" data-spd="60" aria-label="60倍速" aria-pressed="false" title="小镇时间 60×"></button></div>
+    <div id="fastTag"><i>⏳</i>快进中</div>
   </div>
   <div id="hudR">
     <button id="basketBtn" class="press" data-act="tab" data-v="sill" title="窗台回礼"><span class="ic" data-ic="hud-basket"></span><span class="berry" id="sillDot"></span></button>
