@@ -1,0 +1,2615 @@
+{
+  "name": "Lenia garden shed UI",
+  "direction": 2,
+  "asset_count": 103,
+  "pixel_ratio": 2,
+  "format": "RGBA PNG, straight alpha",
+  "image_root": "_handoff/images/assets/ui/",
+  "source": "built-in image_gen, one generation per asset/state",
+  "assets": [
+    {
+      "name": "panel-wood.png",
+      "width": 1024,
+      "height": 1024,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        36,
+        36,
+        988,
+        988
+      ],
+      "path": "panel-wood.png",
+      "scale": 2,
+      "sha256": "96c46557bbd9344b15e9e1b806a67ede5f0e8695e2aafb8c2841a105ea08a5cd",
+      "logical_size": [
+        512,
+        512
+      ],
+      "purpose": "Frontal honey oak square panel with flat subtle-grain center and brass nails in four corners",
+      "nine_slice": {
+        "left": 150,
+        "top": 150,
+        "right": 150,
+        "bottom": 150,
+        "unit": "texture-px-at-2x",
+        "axis": "xy",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          301,
+          301
+        ]
+      }
+    },
+    {
+      "name": "panel-paper.png",
+      "width": 768,
+      "height": 1024,
+      "source_dimensions": [
+        1086,
+        1448
+      ],
+      "alpha_bbox": [
+        27,
+        27,
+        741,
+        997
+      ],
+      "path": "panel-paper.png",
+      "scale": 2,
+      "sha256": "ddd86f760c9df2d72857da4a0d32c1a569c10b4516af11e153863b92a928ead5",
+      "logical_size": [
+        384,
+        512
+      ],
+      "purpose": "Blank cream seed-packet paper note, softly irregular rectangular outline, tiny folded lower right corner, absolutely empty smooth center",
+      "nine_slice": {
+        "left": 190,
+        "top": 210,
+        "right": 190,
+        "bottom": 210,
+        "unit": "texture-px-at-2x",
+        "axis": "xy",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          381,
+          421
+        ]
+      }
+    },
+    {
+      "name": "panel-cork.png",
+      "width": 1024,
+      "height": 1024,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        36,
+        36,
+        988,
+        988
+      ],
+      "path": "panel-cork.png",
+      "scale": 2,
+      "sha256": "d25f7ca9611332847d92dd1f3b22284a8fc789166caab27ea56326f2e7f787c2",
+      "logical_size": [
+        512,
+        512
+      ],
+      "purpose": "Square fine cork noticeboard with honey oak narrow frame and four corner brass nails, empty fine-grain cork center",
+      "nine_slice": {
+        "left": 120,
+        "top": 120,
+        "right": 120,
+        "bottom": 120,
+        "unit": "texture-px-at-2x",
+        "axis": "xy",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          241,
+          241
+        ]
+      }
+    },
+    {
+      "name": "tab-wood-on.png",
+      "width": 512,
+      "height": 192,
+      "stretch_axis": "x",
+      "source_dimensions": [
+        2048,
+        768
+      ],
+      "alpha_bbox": [
+        7,
+        7,
+        505,
+        185
+      ],
+      "path": "tab-wood-on.png",
+      "scale": 2,
+      "sha256": "54024ee7867dd3029e44128c9e95e4f1270d3ad7a39145d7811d0578a127bb4c",
+      "logical_size": [
+        256,
+        96
+      ],
+      "purpose": "Wide blank wooden tab with rounded top corners and flat base, leaf green painted inset selected face, two small brass rivets at ends, empty center",
+      "nine_slice": {
+        "left": 80,
+        "top": 75,
+        "right": 80,
+        "bottom": 40,
+        "unit": "texture-px-at-2x",
+        "axis": "x",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          161,
+          116
+        ]
+      }
+    },
+    {
+      "name": "tab-wood-off.png",
+      "width": 512,
+      "height": 192,
+      "stretch_axis": "x",
+      "source_dimensions": [
+        2048,
+        768
+      ],
+      "alpha_bbox": [
+        7,
+        7,
+        505,
+        185
+      ],
+      "path": "tab-wood-off.png",
+      "scale": 2,
+      "sha256": "e7eb1a410dd8b99b7925d3dffbec56ae471229183a4d14df5b99f42711f715ed",
+      "logical_size": [
+        256,
+        96
+      ],
+      "purpose": "Wide blank wooden tab with rounded top corners and flat base, honey oak unselected face, two small brass rivets at ends, empty center",
+      "nine_slice": {
+        "left": 80,
+        "top": 75,
+        "right": 80,
+        "bottom": 40,
+        "unit": "texture-px-at-2x",
+        "axis": "x",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          161,
+          116
+        ]
+      }
+    },
+    {
+      "name": "slot-wood.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        13,
+        371,
+        371
+      ],
+      "path": "slot-wood.png",
+      "scale": 2,
+      "sha256": "8fc8cac521972d992adfa0100c8ce2d3ff61c0462a1801fd3a14205848f76029",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Square EMPTY storage compartment, frontal wooden border, flat recessed beige cork base, honey wood border, no contents",
+      "nine_slice": {
+        "left": 64,
+        "top": 64,
+        "right": 64,
+        "bottom": 64,
+        "unit": "texture-px-at-2x",
+        "axis": "xy",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          129,
+          129
+        ]
+      }
+    },
+    {
+      "name": "slot-wood-selected.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        13,
+        371,
+        371
+      ],
+      "path": "slot-wood-selected.png",
+      "scale": 2,
+      "sha256": "bbddbb3fbd712b75be873c00b4028add16cbb8c0ce005506a696314cb95cd0b9",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Square EMPTY storage compartment, frontal wooden border, flat recessed beige cork base, tomato red painted selection border, no contents",
+      "nine_slice": {
+        "left": 64,
+        "top": 64,
+        "right": 64,
+        "bottom": 64,
+        "unit": "texture-px-at-2x",
+        "axis": "xy",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          129,
+          129
+        ]
+      }
+    },
+    {
+      "name": "clipboard.png",
+      "width": 1024,
+      "height": 1440,
+      "source_dimensions": [
+        1058,
+        1487
+      ],
+      "alpha_bbox": [
+        36,
+        36,
+        988,
+        1404
+      ],
+      "path": "clipboard.png",
+      "scale": 2,
+      "sha256": "fbef75e5f74a18469ea3a132cadee138c44e3b3cbcfff1d5772e94c614da6502",
+      "logical_size": [
+        512,
+        720
+      ],
+      "purpose": "Portrait honey wood clipboard with blank cream paper, single brass clip anchored near TOP LEFT corner (fixed 9-slice corner), no marks or lines, large flat blank center",
+      "nine_slice": {
+        "left": 430,
+        "top": 340,
+        "right": 170,
+        "bottom": 180,
+        "unit": "texture-px-at-2x",
+        "axis": "xy",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          601,
+          521
+        ]
+      }
+    },
+    {
+      "name": "rope.png",
+      "width": 1024,
+      "height": 96,
+      "source_dimensions": [
+        1295,
+        1214
+      ],
+      "alpha_bbox": [
+        0,
+        19,
+        1024,
+        77
+      ],
+      "path": "rope.png",
+      "scale": 2,
+      "sha256": "c16056bea2f6a2b1239bcc79d11946048c6921536bfe9c30dde9a11a54dfbd3d",
+      "logical_size": [
+        512,
+        48
+      ],
+      "purpose": "Perfectly horizontal straight slender braided hemp rope spanning left edge to right edge at same height, seamless repeating texture, no knots, transparent above and below",
+      "nine_slice": null,
+      "repeat": "x"
+    },
+    {
+      "name": "clothespin.png",
+      "width": 128,
+      "height": 192,
+      "source_dimensions": [
+        1024,
+        1536
+      ],
+      "alpha_bbox": [
+        30,
+        4,
+        98,
+        188
+      ],
+      "path": "clothespin.png",
+      "scale": 2,
+      "sha256": "ef420026df1df2b53ec2041c927317a820bbf5078d05136a37286b13426b0577",
+      "logical_size": [
+        64,
+        96
+      ],
+      "purpose": "Single honey wood spring clothespin upright, brass spring",
+      "nine_slice": null
+    },
+    {
+      "name": "windowsill.png",
+      "width": 2160,
+      "height": 2400,
+      "source_dimensions": [
+        1190,
+        1322
+      ],
+      "alpha_bbox": [
+        76,
+        153,
+        2084,
+        2247
+      ],
+      "path": "windowsill.png",
+      "scale": 2,
+      "sha256": "fba990c6263d4f93d00b2b7eaad3d84ab5c032107644fd1f81916ea6bd3acaee",
+      "logical_size": [
+        1080,
+        1200
+      ],
+      "purpose": "Front view empty warm honey wood window frame with large fully transparent open window center, broad sunlit wooden sill below left EMPTY for gifts, gentle upper left sunlight painted ON wood only. No outdoor scene, plants or objects. Straight vertical side posts, thin top frame, broad bottom sill. Full frame fits canvas.",
+      "nine_slice": null,
+      "usage_note": "Fixed artwork; do not nine-slice. Transparent window opening; gifts overlay the sill."
+    },
+    {
+      "name": "crate-open.png",
+      "width": 2160,
+      "height": 1800,
+      "source_dimensions": [
+        1374,
+        1145
+      ],
+      "alpha_bbox": [
+        63,
+        65,
+        2097,
+        1735
+      ],
+      "path": "crate-open.png",
+      "scale": 2,
+      "sha256": "48b8e2e402081e4c83a28df5b4225e437257c2e36c91a1dc228be9f681c122a6",
+      "logical_size": [
+        1080,
+        900
+      ],
+      "purpose": "Open old honey wooden storage trunk seen from slightly above and front, lid upright upper third, brass hinges and corners, large EMPTY unpartitioned rectangular storage interior lower two thirds ready for grid overlay. No items, no internal dividers, blank lid.",
+      "nine_slice": null,
+      "usage_note": "Fixed artwork; do not nine-slice. Grid overlays empty interior."
+    },
+    {
+      "name": "btn-enamel-green-normal.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-green-normal.png",
+      "scale": 2,
+      "sha256": "9971621b5408eac5360472d53c3e9195f62838ba847c266a8d1bd124a61350e6",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular leaf green enamel button with narrow brass rim, completely EMPTY center. Normal raised state: softly convex face, slight lower-right depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "btn-enamel-green-pressed.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-green-pressed.png",
+      "scale": 2,
+      "sha256": "3154915a3c29d6e5e789867fb0ad53cceafa24d990d3df5dd9a4e6087c78578c",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular leaf green enamel button with narrow brass rim, completely EMPTY center. Pressed state: slightly darker face, recessed lowered inner disc, minimal bottom depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "btn-enamel-red-normal.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-red-normal.png",
+      "scale": 2,
+      "sha256": "c070d249d5ec19acd8db342eaed5852ab2ca65fa7e25e62a7f0c89a32dbf2bcf",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular tomato red enamel button with narrow brass rim, completely EMPTY center. Normal raised state: softly convex face, slight lower-right depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "btn-enamel-red-pressed.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-red-pressed.png",
+      "scale": 2,
+      "sha256": "f9d89e6d0b12dcf4b96cb5f87b5fd868965bbd84dd3cf1f3c0556f8c15410506",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular tomato red enamel button with narrow brass rim, completely EMPTY center. Pressed state: slightly darker face, recessed lowered inner disc, minimal bottom depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "btn-enamel-cream-normal.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-cream-normal.png",
+      "scale": 2,
+      "sha256": "ffdb3a23f3210bed2a44710acf67579218c746a255d7a85c63923de87f94d57d",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular warm cream enamel button with narrow brass rim, completely EMPTY center. Normal raised state: softly convex face, slight lower-right depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "btn-enamel-cream-pressed.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-cream-pressed.png",
+      "scale": 2,
+      "sha256": "b2ff2fdb8cb48bc06a40f38018077789c362a895737c76d51af42d7bb2c8e17f",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular warm cream enamel button with narrow brass rim, completely EMPTY center. Pressed state: slightly darker face, recessed lowered inner disc, minimal bottom depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "btn-enamel-blue-normal.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-blue-normal.png",
+      "scale": 2,
+      "sha256": "bed14c00462f4777d53ca8686fa27272dcf7baa7993f4baf8f8129707d17ace5",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular enamel blue enamel button with narrow brass rim, completely EMPTY center. Normal raised state: softly convex face, slight lower-right depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "btn-enamel-blue-pressed.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        11,
+        309,
+        309
+      ],
+      "path": "btn-enamel-blue-pressed.png",
+      "scale": 2,
+      "sha256": "3f1d3b0e0836a06bb98689b0461a0f611ae5ccc8912365cc1348e542c312c901",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Single perfectly circular enamel blue enamel button with narrow brass rim, completely EMPTY center. Pressed state: slightly darker face, recessed lowered inner disc, minimal bottom depth. Front view, circle centered with identical 8 percent margin. No icon.",
+      "nine_slice": null
+    },
+    {
+      "name": "toolbar-wood.png",
+      "width": 2160,
+      "height": 440,
+      "stretch_axis": "x",
+      "source_dimensions": [
+        2167,
+        725
+      ],
+      "alpha_bbox": [
+        15,
+        15,
+        2145,
+        425
+      ],
+      "path": "toolbar-wood.png",
+      "scale": 2,
+      "sha256": "dddaea1e3607dde2d6b89e68af66c84ec32cd84ba3deec0ba9dbdb6e5b1d3493",
+      "logical_size": [
+        1080,
+        220
+      ],
+      "purpose": "Very wide horizontal honey oak toolbar base board, straight parallel long edges, brass bolts ONLY in far left and right corners, broad flat empty center, no buttons or props, intended horizontal 9-slice",
+      "nine_slice": {
+        "left": 150,
+        "top": 80,
+        "right": 150,
+        "bottom": 80,
+        "unit": "texture-px-at-2x",
+        "axis": "x",
+        "center": "stretch",
+        "edges": "stretch",
+        "minimum_size": [
+          301,
+          161
+        ]
+      }
+    },
+    {
+      "name": "icon-check.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        18,
+        185,
+        173
+      ],
+      "path": "icon-check.png",
+      "scale": 2,
+      "sha256": "34ba349c35dcf416c3c28706b0c9acbd0dccb0494327c9c08fc371b5b7e62367",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: cream check mark. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-cross.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        7,
+        184,
+        185
+      ],
+      "path": "icon-cross.png",
+      "scale": 2,
+      "sha256": "87d51e3380e7190702d1f0b27210e7c1838dec6d6175aa15c6e4c453c8255146",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: cream diagonal X cross. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-rotate.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        11,
+        185,
+        181
+      ],
+      "path": "icon-rotate.png",
+      "scale": 2,
+      "sha256": "f6c271bc30f8abba754efc33cfcb740141afb47809492a255ec8406ec2c55b31",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: cream pair of curved rotation arrows. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-back.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        8,
+        185,
+        183
+      ],
+      "path": "icon-back.png",
+      "scale": 2,
+      "sha256": "ccdc198585ac583d11762200a99589d2a96051c36159cfbee09e78e3c44b12fc",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: leaf green bent left return arrow. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-close.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        7,
+        185,
+        184
+      ],
+      "path": "icon-close.png",
+      "scale": 2,
+      "sha256": "49a7603307b7c3aba5ac017cd55d48dfa44f9230003e106cb60c41e9056013d9",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: tomato red diagonal X close symbol. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-box.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        17,
+        185,
+        175
+      ],
+      "path": "icon-box.png",
+      "scale": 2,
+      "sha256": "85eec5444d14327f31d0ad8dc84f0a16b45abc1b9c5d3a5f5618ffa97fe6a566",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: small open honey wooden storage crate. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-watering-can.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        22,
+        185,
+        169
+      ],
+      "path": "icon-watering-can.png",
+      "scale": 2,
+      "sha256": "65e4c1ee8e39464034af7125b3fd1eb3c38f40f6238263417b49f0b7f681595f",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: tomato red watering can. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-notes.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        10,
+        7,
+        182,
+        185
+      ],
+      "path": "icon-notes.png",
+      "scale": 2,
+      "sha256": "402507b435aebf2ff1d33af957718509c534203c47d2519c6e3bca976a425904",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: two blank seed packet paper notes held by tiny brass clip. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-album.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        14,
+        185,
+        178
+      ],
+      "path": "icon-album.png",
+      "scale": 2,
+      "sha256": "f9f0ff423ba597c65e1af01ebc9914b84ebe8e2973541a3693d1f0810b875c42",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: blue small photo album with tiny daisy decoration. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-basket.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        9,
+        7,
+        182,
+        185
+      ],
+      "path": "icon-basket.png",
+      "scale": 2,
+      "sha256": "4ea5ebce4f32ad708e5c4a89a4b9126158bdd03898099a263363d54dc3c47314",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: small woven gift basket. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-heart.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        19,
+        185,
+        172
+      ],
+      "path": "icon-heart.png",
+      "scale": 2,
+      "sha256": "4186e86ad707e1807969df872493516c3dc64720ebb5b3b97de590248d7a09cd",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: tomato red heart. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-eye.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        40,
+        185,
+        152
+      ],
+      "path": "icon-eye.png",
+      "scale": 2,
+      "sha256": "efb34c23dbe9be2f60989e1b955045d83b3364c7dc89ab422bd82f749c92a2d8",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: leaf green eye symbol with cream iris. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-hand.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        8,
+        185,
+        184
+      ],
+      "path": "icon-hand.png",
+      "scale": 2,
+      "sha256": "02e1891e82843cf101147b65ac7465ada1d6b6038ccc3d6b5d707e81e68f877c",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: cream hand palm with five fingers, picking up gesture. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-arrow-left.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        26,
+        185,
+        165
+      ],
+      "path": "icon-arrow-left.png",
+      "scale": 2,
+      "sha256": "47a8ca5fde17f0139941c9c11d5a2411284d3082022699894e55a39764f708db",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: leaf green simple left arrow. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-arrow-right.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        27,
+        185,
+        165
+      ],
+      "path": "icon-arrow-right.png",
+      "scale": 2,
+      "sha256": "5e524156fa3cb2a29a835d275abda145ff4614c49e4bcfd7b617ec295f546586",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Single clear bold standalone button overlay icon: leaf green simple right arrow. NO circular background or badge, uncluttered legible silhouette",
+      "nine_slice": null
+    },
+    {
+      "name": "hud-sun-clock.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        14,
+        309,
+        306
+      ],
+      "path": "hud-sun-clock.png",
+      "scale": 2,
+      "sha256": "9cdff0a65c38277a10f257094c83904b436be6bac6a33edcf9a8eec9f2f1a3ff",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "Round honey wood sun clock base with carved triangular sun rays, plain pale wood circular face, twelve simple small tick marks but NO NUMERALS and NO HANDS, tiny brass central pivot",
+      "nine_slice": null
+    },
+    {
+      "name": "hud-clock-hand.png",
+      "width": 320,
+      "height": 320,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        147,
+        63,
+        174,
+        173
+      ],
+      "path": "hud-clock-hand.png",
+      "scale": 2,
+      "pivot": [
+        160,
+        160
+      ],
+      "sha256": "073b0e2eb0154353542db1135f15ed99e0ed5a32d255a7ea2b4a66f2c27a7ac0",
+      "logical_size": [
+        160,
+        160
+      ],
+      "purpose": "One separate single dark brass clock pointer facing straight upward, small round brass pivot exactly at center canvas (50%,50%), slender pointer extends toward 12 oclock, transparent rest of canvas",
+      "nine_slice": null
+    },
+    {
+      "name": "hud-basket.png",
+      "width": 256,
+      "height": 256,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        39,
+        9,
+        217,
+        247
+      ],
+      "path": "hud-basket.png",
+      "scale": 2,
+      "sha256": "025ffbaebb035d3bc35d331cb52a5e5c67c3137c49d40b46c8ac96c54eb7a53c",
+      "logical_size": [
+        128,
+        128
+      ],
+      "purpose": "Small honey wicker gift basket with curved handle, a little cream wrapped parcel with tomato red ribbon inside, no badge",
+      "nine_slice": null
+    },
+    {
+      "name": "badge-berry.png",
+      "width": 80,
+      "height": 80,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        6,
+        3,
+        74,
+        77
+      ],
+      "path": "badge-berry.png",
+      "scale": 2,
+      "sha256": "6375b2ff361a0a9ee201cf8d2c4abf081d7682b5d58465d2f0bba1092c15f59f",
+      "logical_size": [
+        40,
+        40
+      ],
+      "purpose": "One glossy small tomato red berry notification dot with tiny green leaf, no numbers",
+      "nine_slice": null
+    },
+    {
+      "name": "hud-weather-sun.png",
+      "width": 128,
+      "height": 128,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        4,
+        4,
+        124,
+        124
+      ],
+      "path": "hud-weather-sun.png",
+      "scale": 2,
+      "sha256": "6342cd6840fbb927914bf49b41a6789209cff3575323c3453277edeaa592e6e2",
+      "logical_size": [
+        64,
+        64
+      ],
+      "purpose": "Small clear weather icon: warm golden sunshine with short rays",
+      "nine_slice": null
+    },
+    {
+      "name": "hud-weather-cloud.png",
+      "width": 128,
+      "height": 128,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        4,
+        25,
+        124,
+        102
+      ],
+      "path": "hud-weather-cloud.png",
+      "scale": 2,
+      "sha256": "1d5400532d9b79f215f5b5ca1c803b6d174977a6626eb040deef4cd6becc709a",
+      "logical_size": [
+        64,
+        64
+      ],
+      "purpose": "Small clear weather icon: soft ivory puffy cloud",
+      "nine_slice": null
+    },
+    {
+      "name": "hud-weather-rain.png",
+      "width": 128,
+      "height": 128,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        4,
+        7,
+        124,
+        121
+      ],
+      "path": "hud-weather-rain.png",
+      "scale": 2,
+      "sha256": "71fc49cd85841b2ba5ecc6af0979c34cc8a6ac7fe8a02932cb3de2ba7e984735",
+      "logical_size": [
+        64,
+        64
+      ],
+      "purpose": "Small clear weather icon: ivory cloud with three blue raindrops",
+      "nine_slice": null
+    },
+    {
+      "name": "hud-weather-snow.png",
+      "width": 128,
+      "height": 128,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        4,
+        12,
+        124,
+        116
+      ],
+      "path": "hud-weather-snow.png",
+      "scale": 2,
+      "sha256": "c90489f2d5c985287d547549edfe7559359c15a71b90a3a72f7cb878a1bab318",
+      "logical_size": [
+        64,
+        64
+      ],
+      "purpose": "Small clear weather icon: ivory cloud with two tiny blue snowflakes",
+      "nine_slice": null
+    },
+    {
+      "name": "item-teapot.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        65,
+        494,
+        447
+      ],
+      "path": "item-teapot.png",
+      "scale": 2,
+      "sha256": "ea0f29b6d54e4456cec7097855cd5b34a2003685ba5252308b7c1ea648228efb",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: turquoise old enamel teapot with curved spout and handle and tiny cream daisies. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-boot.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        61,
+        18,
+        451,
+        494
+      ],
+      "path": "item-boot.png",
+      "scale": 2,
+      "sha256": "74bb92125842b69de43c666cc61b575435acbd0dcd93d633da7a553dc71dac1e",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: one worn tomato red gardening rain boot. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-fishtin.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        74,
+        494,
+        437
+      ],
+      "path": "item-fishtin.png",
+      "scale": 2,
+      "sha256": "5a1cbb495889243152e4cacd5c0a71de8c11601f4223f634ff7dcb438fbcf1fd",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: blue rectangular old sardine tin with a simple cream fish illustration and silver pull ring, no writing. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-teacup.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        79,
+        494,
+        432
+      ],
+      "path": "item-teacup.png",
+      "scale": 2,
+      "sha256": "65642fbaeb2339daec8715a935fc3884bfeeade77fc006cbb1282bff24e64f24",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: old cream porcelain tea cup with pink flowers. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-honeyjar.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        32,
+        18,
+        480,
+        494
+      ],
+      "path": "item-honeyjar.png",
+      "scale": 2,
+      "sha256": "237d98d68df0ad19d7407b20a82b8e850818ea2f0b98718f01f332d78cda70bb",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: amber glass honey jar with cream lid and a completely blank paper tag. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-eggshell.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        41,
+        494,
+        470
+      ],
+      "path": "item-eggshell.png",
+      "scale": 2,
+      "sha256": "a958d58758dcc3ece9164c9f52d2fdf0912759cf293ca45a9a24581d9ed99567",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: large empty broken ivory eggshell. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-cookietin.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        68,
+        494,
+        444
+      ],
+      "path": "item-cookietin.png",
+      "scale": 2,
+      "sha256": "b73816923797afe38469bba47d99e487001ac4835a905668202284a721cedbc8",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: old round blue cookie tin with brass rim and tiny cream flowers, closed. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-yarn.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        41,
+        18,
+        470,
+        494
+      ],
+      "path": "item-yarn.png",
+      "scale": 2,
+      "sha256": "a8231319ad711b7111ec94a40c6ab7c949d799a954992559c91e45dcd5a65fd7",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: ball of tomato red yarn with loose end. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-button.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        34,
+        494,
+        477
+      ],
+      "path": "item-button.png",
+      "scale": 2,
+      "sha256": "97b1294177ccc2b3faf6eced7c297531a3766580f9fb21f0045f61c00837702a",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: large old red four-hole sewing button. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-toycar.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        97,
+        494,
+        414
+      ],
+      "path": "item-toycar.png",
+      "scale": 2,
+      "sha256": "09df836fb6f22264fbbbd5c99df399c7cb3200b0cca230be6ca30b899e1575dd",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: old small red wooden toy car with four black wheels. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-spool.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        57,
+        18,
+        455,
+        494
+      ],
+      "path": "item-spool.png",
+      "scale": 2,
+      "sha256": "018783f743db33c10e458f22856fa2ceee8c81eb25277a28eeb00bd6f522530f",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: wooden spool with blue thread. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-rubberduck.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        42,
+        18,
+        469,
+        494
+      ],
+      "path": "item-rubberduck.png",
+      "scale": 2,
+      "sha256": "b4f3741a7ffd9cb24b14c61ebc2498e8058e4cd18aeea0af86ce9867ab562899",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: small worn yellow rubber duck. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-matchbox.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        48,
+        494,
+        463
+      ],
+      "path": "item-matchbox.png",
+      "scale": 2,
+      "sha256": "f3ae3b666d29954b121927d6351ba0184d9686761677fb4d25314420965f2efc",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: small closed red and cream matchbox, blank label, striking strip along side. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-thimble.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        70,
+        18,
+        442,
+        494
+      ],
+      "path": "item-thimble.png",
+      "scale": 2,
+      "sha256": "b6e9f5c014fb70e5b3a83050134a5de143cce100fc432977c0e65ddaa6f1def2",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: old dimpled brass sewing thimble. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-pencil.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        63,
+        494,
+        448
+      ],
+      "path": "item-pencil.png",
+      "scale": 2,
+      "sha256": "d2b94507f63f5d1be8848a02c719269e4fe22fea1bdd3e813f47fc24d2907b1c",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: short worn yellow pencil with pink eraser. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-glassjar.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        66,
+        18,
+        445,
+        494
+      ],
+      "path": "item-glassjar.png",
+      "scale": 2,
+      "sha256": "fc1910582c26587a3f575bd54e073b878d3cb9bf55ad262a71eeca121af5f09e",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: empty transparent pale blue glass jar. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-oldbook.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        38,
+        18,
+        473,
+        494
+      ],
+      "path": "item-oldbook.png",
+      "scale": 2,
+      "sha256": "013acf7b9232a317dc6571b371da521763dc2e411eb939d915adae1337673151",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: closed worn green cloth book with red ribbon bookmark, blank cover and spine. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-toaster.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        25,
+        494,
+        486
+      ],
+      "path": "item-toaster.png",
+      "scale": 2,
+      "sha256": "2b737343253228efab227ca4085826a38786df88d40f066fb79b84d737aafd12",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: old cream enamel two-slot toaster with brass lever. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-kettle.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        36,
+        18,
+        476,
+        494
+      ],
+      "path": "item-kettle.png",
+      "scale": 2,
+      "sha256": "943b02c38122206e823343bfe0733185fd1e29e3aca25ccff089e256b869fcad",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: old blue metal kettle with arched handle. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-flowerpot.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        25,
+        18,
+        486,
+        494
+      ],
+      "path": "item-flowerpot.png",
+      "scale": 2,
+      "sha256": "73f0807d3173f78737b9d6cdf30c3c43eb5b261120529bb99a5b926cf61a4312",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Refined miniature old household object illustration, 3/4 view: empty weathered terracotta flowerpot. Ordinary object, NO architectural conversion, NO doors or windows, no ground plane.",
+      "nine_slice": null
+    },
+    {
+      "name": "mat-twig.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        24,
+        7,
+        168,
+        185
+      ],
+      "path": "mat-twig.png",
+      "scale": 2,
+      "sha256": "7b382e68dd1c2f22007dffcbf4ccf47f5dc8ee0af2a46c1c3a8b240060223d10",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Small resource icon: short forked brown twig",
+      "nine_slice": null
+    },
+    {
+      "name": "mat-stone.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        20,
+        185,
+        171
+      ],
+      "path": "mat-stone.png",
+      "scale": 2,
+      "sha256": "2a154b598e6bdef4bc9711d39df60912ab8e07be3d3a2daf3e3d8d56a83d009e",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Small resource icon: small rounded grey stone",
+      "nine_slice": null
+    },
+    {
+      "name": "mat-hay.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        26,
+        185,
+        166
+      ],
+      "path": "mat-hay.png",
+      "scale": 2,
+      "sha256": "f7beef2355c05da8f457680bec56f09400d9809ae59874bea327f213efe123b2",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Small resource icon: small bundle of golden hay",
+      "nine_slice": null
+    },
+    {
+      "name": "mat-button.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        7,
+        185,
+        185
+      ],
+      "path": "mat-button.png",
+      "scale": 2,
+      "sha256": "ddc698dc56ccadc5579d352d83d66b33b95a635b6d73178f7c0f1170814830ba",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Small resource icon: small green two-hole button",
+      "nine_slice": null
+    },
+    {
+      "name": "mat-bottlecap.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        22,
+        185,
+        169
+      ],
+      "path": "mat-bottlecap.png",
+      "scale": 2,
+      "sha256": "800d2973e0d23b60147063048552bae0eaab1a909d8e4cfc9fa78f7fc5ad3c13",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Small resource icon: blue ridged bottle cap",
+      "nine_slice": null
+    },
+    {
+      "name": "mat-thread.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        15,
+        7,
+        177,
+        185
+      ],
+      "path": "mat-thread.png",
+      "scale": 2,
+      "sha256": "1124b57712e131b8c34e22dd09529d9721f6ca40e27cda5c1848609808261087",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Small resource icon: little loose coil of cream thread",
+      "nine_slice": null
+    },
+    {
+      "name": "mat-nail.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        19,
+        7,
+        173,
+        185
+      ],
+      "path": "mat-nail.png",
+      "scale": 2,
+      "sha256": "c0fcf0a1c3755f483b76850a6b7cf44f13604fc11eb691a8010b6f095b30af78",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Small resource icon: single old iron nail",
+      "nine_slice": null
+    },
+    {
+      "name": "gift-wreath.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        13,
+        366,
+        371
+      ],
+      "path": "gift-wreath.png",
+      "scale": 2,
+      "sha256": "d486ccd2745d1f584ba817f9f7ffe8c5bed6767ef37c04f39daa7b168f1f129d",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Small thoughtful garden gift illustration: small green leaf and white daisy wreath tied with red twine",
+      "nine_slice": null
+    },
+    {
+      "name": "gift-pebble.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        66,
+        371,
+        318
+      ],
+      "path": "gift-pebble.png",
+      "scale": 2,
+      "sha256": "cb9f498735e0b351198fa4ae7196d74a1f6085932a013a5c276fb09f717c7e23",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Small thoughtful garden gift illustration: smooth beautiful blue pebble with fine cream mineral veins",
+      "nine_slice": null
+    },
+    {
+      "name": "gift-leafpack.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        22,
+        13,
+        362,
+        371
+      ],
+      "path": "gift-leafpack.png",
+      "scale": 2,
+      "sha256": "14e4d5e716618e0d69317a2359b1983606e62ccbbe5038f2a4d6117303bed28c",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Small thoughtful garden gift illustration: little parcel wrapped in green leaves tied with hemp string",
+      "nine_slice": null
+    },
+    {
+      "name": "gift-note.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        51,
+        371,
+        332
+      ],
+      "path": "gift-note.png",
+      "scale": 2,
+      "sha256": "78ba9ef957918185ada4232c2921d7fc4ec41a5565f895046ed756cec57bd722",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Small thoughtful garden gift illustration: small folded cream paper note, completely blank, no marks",
+      "nine_slice": null
+    },
+    {
+      "name": "gift-acorn.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        63,
+        13,
+        320,
+        371
+      ],
+      "path": "gift-acorn.png",
+      "scale": 2,
+      "sha256": "12b4ace6892093f30fe8a94af48b803f6713a69a7a5b65614fb1db1afbb193dc",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Small thoughtful garden gift illustration: brown acorn with textured cap",
+      "nine_slice": null
+    },
+    {
+      "name": "gift-feather.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        50,
+        13,
+        333,
+        371
+      ],
+      "path": "gift-feather.png",
+      "scale": 2,
+      "sha256": "de6bac95b4b4c0ddb5a43d80686bc7ab931c3dca951d8af75ed8620d13e8abc5",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Small thoughtful garden gift illustration: small cream feather with warm brown tip",
+      "nine_slice": null
+    },
+    {
+      "name": "avatar-chick.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        13,
+        365,
+        371
+      ],
+      "path": "avatar-chick.png",
+      "scale": 2,
+      "sha256": "b5379f6fa01edd2d338657859124ec10d162953402059a26dc6aeff43a2d16fc",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Circular honey wood rim portrait badge, leaf green flat inner backdrop, bust portrait of yellow chick, tiny feather tuft, orange beak, blue denim overalls. Cute plush hand-painted character matching species lineup, warm rosy cheeks, entire ears remain INSIDE circular badge, no extra limbs.",
+      "nine_slice": null
+    },
+    {
+      "name": "avatar-rabbit.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        34,
+        13,
+        349,
+        371
+      ],
+      "path": "avatar-rabbit.png",
+      "scale": 2,
+      "sha256": "f6874e287a07139666dda8d3ffb914564696e4ee3db80f13c17980676261e2da",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Circular honey wood rim portrait badge, leaf green flat inner backdrop, bust portrait of cream rabbit, long pink inner ears, green apron dress over cream top. Cute plush hand-painted character matching species lineup, warm rosy cheeks, entire ears remain INSIDE circular badge, no extra limbs.",
+      "nine_slice": null
+    },
+    {
+      "name": "avatar-cat.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        13,
+        371,
+        370
+      ],
+      "path": "avatar-cat.png",
+      "scale": 2,
+      "sha256": "1e54f5669ec6a3611123f00ba5177234ac91654791397a24198764023061c800",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Circular honey wood rim portrait badge, leaf green flat inner backdrop, bust portrait of grey tabby cat, pink nose, rust red dress with cream collar. Cute plush hand-painted character matching species lineup, warm rosy cheeks, entire ears remain INSIDE circular badge, no extra limbs.",
+      "nine_slice": null
+    },
+    {
+      "name": "avatar-dog.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        13,
+        371,
+        370
+      ],
+      "path": "avatar-dog.png",
+      "scale": 2,
+      "sha256": "064c60e3b34d7e8a61ef05344d410b50d1fc247414d7e2cf61f389f253dfdd63",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Circular honey wood rim portrait badge, leaf green flat inner backdrop, bust portrait of cream and tan floppy-ear dog, blue denim overalls and red neckerchief. Cute plush hand-painted character matching species lineup, warm rosy cheeks, entire ears remain INSIDE circular badge, no extra limbs.",
+      "nine_slice": null
+    },
+    {
+      "name": "avatar-duck.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        14,
+        13,
+        369,
+        371
+      ],
+      "path": "avatar-duck.png",
+      "scale": 2,
+      "sha256": "5448388953f2cd5e1dd63156070c85ba21b00112820358e811cd780eeb70c88d",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Circular honey wood rim portrait badge, leaf green flat inner backdrop, bust portrait of ivory duck, orange bill, mustard yellow waistcoat. Cute plush hand-painted character matching species lineup, warm rosy cheeks, entire ears remain INSIDE circular badge, no extra limbs.",
+      "nine_slice": null
+    },
+    {
+      "name": "avatar-bear.png",
+      "width": 384,
+      "height": 384,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        13,
+        371,
+        371
+      ],
+      "path": "avatar-bear.png",
+      "scale": 2,
+      "sha256": "d69f165e566f3f2461565f40fd626fb87743bb965c8cd3004e387d313ec373fa",
+      "logical_size": [
+        192,
+        192
+      ],
+      "purpose": "Circular honey wood rim portrait badge, leaf green flat inner backdrop, bust portrait of brown bear, beige muzzle, cream cable-knit sweater. Cute plush hand-painted character matching species lineup, warm rosy cheeks, entire ears remain INSIDE circular badge, no extra limbs.",
+      "nine_slice": null
+    },
+    {
+      "name": "stamp-paw.png",
+      "width": 256,
+      "height": 256,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        11,
+        9,
+        245,
+        247
+      ],
+      "path": "stamp-paw.png",
+      "scale": 2,
+      "sha256": "048dac349b22984bbac57e897ecb65296fa1b74d84947bcdcc04bb15b61d34de",
+      "logical_size": [
+        128,
+        128
+      ],
+      "purpose": "Terracotta red wax stamp impression with simple recessed animal paw symbol, organic circular wax edge",
+      "nine_slice": null
+    },
+    {
+      "name": "check-tick.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        7,
+        12,
+        185,
+        180
+      ],
+      "path": "check-tick.png",
+      "scale": 2,
+      "sha256": "bee8c58fef49060ba43c5352e38ab8f9f7ca3c4d1c096ccaf6d4704f81f257c8",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "One hand-painted leaf green check mark, bold and clean",
+      "nine_slice": null
+    },
+    {
+      "name": "progress-seed-empty.png",
+      "width": 96,
+      "height": 96,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        24,
+        3,
+        71,
+        93
+      ],
+      "path": "progress-seed-empty.png",
+      "scale": 2,
+      "sha256": "f19881b5682084523783644c5468a4b8997a241d2633063712f97718c75e11b0",
+      "logical_size": [
+        48,
+        48
+      ],
+      "purpose": "Single seed-shaped progress marker, pointed oval almond silhouette, hollow honey brown outline with transparent empty center",
+      "nine_slice": null
+    },
+    {
+      "name": "progress-seed-full.png",
+      "width": 96,
+      "height": 96,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        21,
+        3,
+        74,
+        93
+      ],
+      "path": "progress-seed-full.png",
+      "scale": 2,
+      "sha256": "6880a541531469330c10c87d1452a72f0403ecc3e516a0e2df8354d71d31830c",
+      "logical_size": [
+        48,
+        48
+      ],
+      "purpose": "Single seed-shaped progress marker, pointed oval almond silhouette, filled leaf green with tiny cream shine",
+      "nine_slice": null
+    },
+    {
+      "name": "item-umbrella.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        28,
+        492,
+        479
+      ],
+      "path": "item-umbrella.png",
+      "scale": 2,
+      "sha256": "9a0082c147719dcbce3ba9870b9451bcb9bf2c58df42baaac58a8855315e2196",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Open umbrella, red and cream WHITE CHECKERED fabric canopy, eight ribs, gently scalloped edge, small brass tip cap, dark brown wooden curved handle. Tilted to show a little of ribs.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-kite.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        42,
+        21,
+        494,
+        488
+      ],
+      "path": "item-kite.png",
+      "scale": 2,
+      "sha256": "a7f5c4fc1c6d3b7c41fe39b17d02629db7f69893ece047751e572299f152d4c3",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Traditional swallow-shaped paper kite: dark navy body, cream belly with a row of red dots, two yellow wings each with one red circular spot, black eyes, bamboo framework. Tail string with exactly three little bows red yellow blue. A wooden kite string spool beside it.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-trowel.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        62,
+        38,
+        490,
+        487
+      ],
+      "path": "item-trowel.png",
+      "scale": 2,
+      "sha256": "7e9fe76a47b15c05b8fcc1fa8a18a7495d70502545dd93efef821af3964810e2",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Small garden trowel with silver gray scoop-shaped iron blade, a little soil on pointed blade tip, brass ferrule, rounded green painted wooden handle, small hanging loop at handle end.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-strawhat.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        20,
+        21,
+        490,
+        487
+      ],
+      "path": "item-strawhat.png",
+      "scale": 2,
+      "sha256": "08fc55c2bd0c18f6b29519122fc4230ce80382d685ca1a8d5f39d3fc165662de",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Wide brim straw hat, concentric woven straw texture, gently drooping brim, red silk ribbon around crown with bow and two trailing ribbon ends at back.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-popsicle.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        55,
+        31,
+        479,
+        489
+      ],
+      "path": "item-popsicle.png",
+      "scale": 2,
+      "sha256": "f93aa4a2c6c0472786f29c8a3032b5017d60045e4a15040dce2718f27c7734b3",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Small handful of flat round-ended used wooden popsicle sticks arranged as a fan, ends stained orange, strawberry pink and mint blue. One red rubber band around bundle. No ice cream remaining.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-shell.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        19,
+        494,
+        477
+      ],
+      "path": "item-shell.png",
+      "scale": 2,
+      "sha256": "324471629b0fb784d444c356f81f470af2c642651cf87938f53a89644024d963",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Single scallop seashell, radial raised ribs, scalloped edge, pale pink exterior fading white near hinge, two small ears beside hinge.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-rake.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        46,
+        19,
+        468,
+        493
+      ],
+      "path": "item-rake.png",
+      "scale": 2,
+      "sha256": "b3803c5b751e716c4e9a8c061c2a446982fed749b894ef9cffc9a01632da6d11",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Bamboo leaf rake with long handle and fan shaped bamboo tines with TWO missing tines leaving gaps. Resting on a small pile of red yellow orange autumn leaves.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-pumpkin.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        18,
+        490,
+        484
+      ],
+      "path": "item-pumpkin.png",
+      "scale": 2,
+      "sha256": "49401753991eae8723eee923f5f616961041aad90b18f0df763f1a3b6b9779ad",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Plump round large pumpkin with ten alternating light and dark orange ribs, recessed top, curved brownish green stem, one curled green vine and one large green leaf.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-chestnut.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        31,
+        33,
+        491,
+        468
+      ],
+      "path": "item-chestnut.png",
+      "scale": 2,
+      "sha256": "91386de2a72e3de7f9063b2af69efb827085403173ba369c7b80e490dcb97ea1",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Spiky yellow-green chestnut burr split open like a bowl containing exactly three glossy brown chestnuts with cream basal patches and small pointed tips.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-mittens.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        31,
+        489,
+        484
+      ],
+      "path": "item-mittens.png",
+      "scale": 2,
+      "sha256": "6ad89f9610049a8b8342636cea8bf38392d5a36296c2346e49cd9b04c343e217",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Pair of red knitted mittens, each with white stripe across back knitted with red snowflake motif, white ribbed cuffs; one red yarn cord connecting the two mittens.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-beanie.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        30,
+        491,
+        487
+      ],
+      "path": "item-beanie.png",
+      "scale": 2,
+      "sha256": "36edb26052e84240819bcfe46f7f68b84b1fde8312fcad911c7410c03b82dc5c",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Green and white horizontally striped knitted beanie, green ribbed turned-up brim, one fluffy white pompom on top.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-hotbottle.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        20,
+        479,
+        481
+      ],
+      "path": "item-hotbottle.png",
+      "scale": 2,
+      "sha256": "6193615875e1ef3e145f667100948654e1e1f2cb61060b64208095a755f0d7d9",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "Flat hot water bottle in red and green plaid knitted sweater cover, cream ribbing at neck, red rubber bottle neck and dark red screw stopper, small completely blank cloth label stitched on sweater.",
+      "nine_slice": null
+    },
+    {
+      "name": "item-jinglebell.png",
+      "width": 512,
+      "height": 512,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        18,
+        20,
+        494,
+        486
+      ],
+      "path": "item-jinglebell.png",
+      "scale": 2,
+      "sha256": "6af51d069997899eb87872c48afaf80cbbd82e34c64d94905b1b28ab7d508e09",
+      "logical_size": [
+        256,
+        256
+      ],
+      "purpose": "One round golden jingle bell, lower half with one slit and a small round hole at each end, upper loop tied with red ribbon bow, two dark green holly leaves and exactly three red berries.",
+      "nine_slice": null
+    },
+    {
+      "name": "icon-map.png",
+      "width": 192,
+      "height": 192,
+      "source_dimensions": [
+        1254,
+        1254
+      ],
+      "alpha_bbox": [
+        13,
+        10,
+        181,
+        166
+      ],
+      "path": "icon-map.png",
+      "scale": 2,
+      "sha256": "b63f2c2dca35c77baa891ce44449128564305b715bac6d16a4ee6fe437eddae6",
+      "logical_size": [
+        96,
+        96
+      ],
+      "purpose": "Bottom navigation map icon: cream aged paper folded in three panels, brown outline, a red dashed winding path from one green dot town to one red round destination pin. Simple readable composition consistent with reference clipboard icon. No words or letters.",
+      "nine_slice": null
+    },
+    {
+      "name": "journey-map.png",
+      "width": 1600,
+      "height": 1300,
+      "source_dimensions": [
+        1391,
+        1131
+      ],
+      "alpha_bbox": [
+        0,
+        5,
+        1560,
+        1300
+      ],
+      "path": "journey-map.png",
+      "scale": 2,
+      "sha256": "bc532c6bb72a73663c3d5b768bdfcafec0bd0557fc899aa91de96f1f9ddf0567",
+      "logical_size": [
+        800,
+        650
+      ],
+      "purpose": "Landscape aged cream paper map sheet, aspect ratio 1600:1300, gently irregular paper edges, dashed border around all four sides, one light blue stream flowing from upper right to lower left, a few small grass tufts. Keep large central areas empty for programmatic town and destinations. No town or pins, NO TEXT. Entire paper within image with transparent outer margins. Flat frontal view.",
+      "nine_slice": null
+    },
+    {
+      "name": "letter-paper.png",
+      "width": 768,
+      "height": 1024,
+      "source_dimensions": [
+        1049,
+        1500
+      ],
+      "alpha_bbox": [
+        39,
+        24,
+        733,
+        963
+      ],
+      "path": "letter-paper.png",
+      "scale": 2,
+      "sha256": "6956f685fa4f45b5c399b9e89f4e344b9a0c1b45580b750c11abb9e5a989e531",
+      "logical_size": [
+        384,
+        512
+      ],
+      "purpose": "Portrait sheet of cream writing paper, horizontal fine ruled lines, blank rectangular postage stamp placeholder in upper right. Flat frontal view, simple plain edges suitable for nine-slice stretching, no folds crossing interior, no words or letters or writing. Entire paper within image with transparent outer margins.",
+      "nine_slice": {
+        "left": 100,
+        "top": 850,
+        "right": 100,
+        "bottom": 125
+      }
+    }
+  ]
+}
