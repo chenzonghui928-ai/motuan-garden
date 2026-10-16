@@ -2,10 +2,10 @@
 // 天气按季节随机、持续半天到一天；下雨时露天还没改造的旧物会受潮、太久会变旧，居民自发把东西搬到屋檐下或盖上叶子；
 // 雨后的水洼可以放东西；雪天地面积白、居民堆雪人；每季一个节日；远行小队按真实时间离开（离线也算），回来时按时长、行囊和性格生成游记。
 import { DAY, TAU, clamp, isNight, hm, SP_NAME, EDGE_R, GATES, PLAZA_R } from '../shared/layout.js';
-import { ITEMS, WORN, placeCheck, SEEDS, inSeason, TOWN_WISHES } from '../shared/items.js';
+import { ITEMS, COMBOS, WORN, placeCheck, SEEDS, inSeason, TOWN_WISHES } from '../shared/items.js';
 import { footOf } from '../shared/footprint.js';
 import { SEASONS, SEASON_NAME, calendar, WEATHERS, WX_P, WX_DUR, WX_NAME, DAMP_RATE, FESTIVALS, FEST_DAY, SEASON_TEXT, DAMP_SPEED, OLD_AFTER, PUDDLE_MAX, YEAR_DAYS } from '../shared/seasons.js';
-import { DESTS, DEST_KEYS, packOf, tripHours, writeJourney, TRIP_CD_H, WET_DEST } from '../shared/journey.js';
+import { DESTS, DEST_KEYS, packOf, tripHours, writeJourney, TRIP_CD_H, WET_DEST, recipePick, recipeChance, RECIPE_SEEN } from '../shared/journey.js';
 
 const A = { IDLE: 0, WALK: 1, GATHER: 2, BUILD: 8, INSIDE: 9, SLEEP: 6 };
 export const SEASON_ITEMS = Object.fromEntries(SEASONS.map(s => [s, Object.keys(ITEMS).filter(k => ITEMS[k].season === s)]));
@@ -275,13 +275,19 @@ export function installSeasons(Sim) {
     }
     const it = ITEMS[e.item]; let s = this.rng() * 1e9 | 0; const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
     const J = writeJourney({ dest: e.dest, item: e.item, itemName: it.name, members: rs.map(r => ({ name: r.name, sp: r.sp, traits: r.traits })), hours: e.hours, season: e.season || c.season, finds: finds.map(f => f.label), rnd });
-    e.res = { finds, title: J.title, paras: J.paras, mood: pk.mood || 0 };
+    // 配方：按概率带回 0～1 张（只从还不知道的里面挑；目的地和季节有偏好，见 shared/journey.js）
+    let recipe = null; const dry = this.lstats.recipeDry || 0;
+    if (this.rng() < recipeChance(e.hours, luck, dry)) { const rc = recipePick(this.recipes, e.dest, e.season || c.season, () => this.rng()); if (rc) recipe = { id: rc.id, line: RECIPE_SEEN[rc.id] || rc.story }; }
+    e.res = { finds, title: J.title, paras: J.paras, mood: pk.mood || 0, recipe };
   };
   P.tripFinish = function (e) {
     const rs = e.rids.map(id => this.rById(id)).filter(Boolean); const D = DESTS[e.dest]; if (!e.res) this.tripResult(e);
     for (const f of e.res.finds) { if (f.type === 'item') this.giveItem(f.k, f.n, 'trip'); else this.seeds[f.k] = (this.seeds[f.k] || 0) + f.n; }
     for (const r of rs) { r.tripHome = 0; r.box = 0; if (r.job === 'trip') this.finishTask(r); r.mood = Math.min(100, r.mood + 12 + (e.res.mood || 0)); this.remember(r, `从${D.name}远行回来了`); for (const o of rs) if (o !== r) this.bond(r, o, 6); }
     const card = this.addCard('journey', e.res.title, e.res.paras.join('\n'), rs, [0, 0]); card.dest = e.dest; card.finds = e.res.finds.map(f => f.label);
+    const rp = e.res.recipe && COMBOS.find(c => c.id === e.res.recipe.id);
+    if (rp && !this.recipes[rp.id]) { this.recipes[rp.id] = { day: this.day(), from: 'trip:' + e.dest }; this.lstats.recipeDry = 0; card.recipe = { id: rp.id, name: rp.name, a: rp.a, b: rp.b, line: e.res.recipe.line }; if (rs[0]) this.remember(rs[0], `在${D.name}学到了${ITEMS[rp.a].name}和${ITEMS[rp.b].name}的拼法`); }
+    else this.lstats.recipeDry = (this.lstats.recipeDry || 0) + 1;
     this.letters.unshift({ id: card.id, title: card.title, dest: e.dest, day: this.day(), seen: false }); if (this.letters.length > 12) this.letters.length = 12;
     this.gateEv(e.gate, 'back', `${rs.map(r => r.name).join('、')}从${D.name}回来了，带回${e.res.finds.map(f => f.label).join('、')}`);
     this.expDone++; this.expCD = this.wall + TRIP_CD_H * 3.6e6; this.exp = null; this.ver++;

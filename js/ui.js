@@ -20,13 +20,26 @@ const mergeTitle = (type, n) => ({ wish: `今天有 ${n} 个心愿实现了`, fr
 const av = (sp, cls = '') => `<span class="av ${cls}">${icon('av:' + sp)}</span>`;
 const seeds = (p, n = 5) => `<span class="seeds">${Array.from({ length: n }, (_, i) => `<i class="seed ${p * n >= i + 0.5 ? 'on' : ''}"></i>`).join('')}</span>`;
 const itemIc = (k, cls = '') => icon('item:' + k, cls);
+// ---- 配方：储物箱格子角标 / 详情「搭配」栏 / 图鉴三态 / 游记配方卡
+const known = (L, id) => !!(L.recipes && L.recipes[id]);
+const recipeMark = (L, k) => COMBOS.some(c => (c.a === k || c.b === k) && known(L, c.id)) ? '<i class="rbadge" title="知道它的拼法"></i>' : '';
+function recipeRows(L, k, combos) {
+  const rs = combos.filter(c => known(L, c.id)); let h = `<div class="rcps"><div class="rcph">搭配</div>`;
+  if (!rs.length) return h + `<div class="rcp none">还不知道它能和什么拼</div></div>`;
+  for (const c of rs) {
+    const o = c.a === k ? c.b : c.a; const hint = (L.landed || []).some(x => x.item === o) ? `花园里就有${ITEMS[o].name}` : L.box[o] > 0 ? `储物箱里就有${ITEMS[o].name}` : '';
+    h += `<div class="rcp">${recipeIcons(k, o, c.id)}<span class="rcpt">能和<b>${esc(ITEMS[o].name)}</b>拼成<b>${esc(c.name)}</b>${L.cdex && L.cdex[c.id] ? '' : '<span class="chip rst">已知配方 · 还没拼过</span>'}${hint ? `<em>${esc(hint)}</em>` : ''}</span></div>`;
+  }
+  return h + '</div>';
+}
+const recipeIcons = (a, b, id) => `<span class="rcpi">${itemIc(a)}<i>+</i>${itemIc(b)}<i>=</i>${icon('item:combo_' + id)}</span>`;
 const BACK = Object.fromEntries(Object.entries(TEMPLATE_OF).map(([k, v]) => [v, k]));
 const homeIc = (r) => { const k = r.homeCombo ? 'combo_' + r.homeCombo : BACK[r.homeKind] || (r.homeKind && ITEMS[r.homeKind] ? r.homeKind : null); return k ? `<span class="slot homeslot">${itemIc(k)}</span>` : `<span class="slot homeslot"><span class="ttlf" style="color:#fff3d8;font-size:13px">${r.homeKind ? '小屋' : '没家'}</span></span>`; };
 const comboOfCard = (c) => { const m = /「(.+?)」|：(.+?)！/.exec(c.title); return m; };
 
 export function createUI(api) {
   const S = { openGroups: new Set(), mergedToast: null, info: null, cards: [], album: [], tab: 'town', view: null, boxTab: 'items', boxSel: null, atticSel: null, seedSel: 'daisy', albumSub: 'new', resId: null,
-    dreamRid: null, dreamTarget: null, seenCards: 0, giftShown: 0, toastIds: new Set(), lastCardId: 0, wishSeen: '', noticeT: -1, extra: [], trip: { item: null, rids: [], dest: 'picnic' }, letterShown: 0, giftHold: true, pendingGift: null };
+    dreamRid: null, dreamTarget: null, seenCards: 0, giftShown: 0, toastIds: new Set(), toastMode: 'stack', lastCardId: 0, wishSeen: '', noticeT: -1, extra: [], trip: { item: null, rids: [], dest: 'picnic' }, letterShown: 0, giftHold: true, pendingGift: null };
   const sheet = $('sheet'), frame = $('sheetF'), body = $('sheetB');
   // ---------------------------------------------------------------- 打开 / 关闭
   function setTab(tab, view = null) {
@@ -78,6 +91,10 @@ export function createUI(api) {
     else if (a === 'drGo') { const [type, id] = S.dreamTarget.split(':'); api.send({ type: 'dream', rid: S.dreamRid, target: { type, id: +id } }); }
     else if (a === 'sub') { S.albumSub = v; render(true); }
     else if (a === 'toastX') { S.toastIds.delete(+v); renderToasts(); }
+    else if (a === 'toastMore') { S.toastMode = 'list'; renderToasts(); }
+    else if (a === 'toastLess') { S.toastMode = 'chip'; renderToasts(); }
+    else if (a === 'toastChip') { S.toastMode = 'list'; renderToasts(); }
+    else if (a === 'toastAll') { S.toastIds.clear(); S.toastMode = 'stack'; renderToasts(); }
     else if (a === 'giftOk') { $('gift').classList.remove('open'); api.send({ type: 'giftSeen' }); }
     else if (a === 'grp') { if (S.openGroups.has(v)) S.openGroups.delete(v); else S.openGroups.add(v); render(); }
     else if (a === 'tpItem') { S.trip.item = v; render(); }
@@ -86,6 +103,7 @@ export function createUI(api) {
     else if (a === 'tpGo') { const T = S.trip; T.going = T.dest; T.goRid = T.rids[0]; api.send({ type: 'lenia', act: 'trip', item: T.item, rids: T.rids.slice(), dest: T.dest }); }
     else if (a === 'tripWith') { const r = I && I.res.find(r => r.id === +v); if (r && !r.away) { if (!S.trip.rids.includes(r.id)) { S.trip.rids.push(r.id); if (S.trip.rids.length > 3) S.trip.rids.shift(); } } setTab('trip'); }
     else if (a === 'letter') { const c = S.cards.find(c => c.id === +v) || S.album.find(c => c.id === +v); if (c) showLetter(c); }
+    else if (a === 'letterRecipe') { const e = document.querySelector('#letter .rcard'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     else if (a === 'letterOk') { $('letter').classList.remove('open'); }
     else if (a === 'letterKeep') { const id = +v; if (!S.album.some(c => c.id === id)) { api.send({ type: 'collect', id, on: true }); const c = S.cards.find(c => c.id === id); if (c) S.album.unshift({ ...c }); } $('letter').classList.remove('open'); render(); }
     else if (a === 'siteDream' || a === 'siteFill' || a === 'siteRecall') { if (el.disabled) return; S.siteBusy = a; api.send({ type: 'lenia', act: a, id: S.siteId }); }
@@ -119,7 +137,7 @@ export function createUI(api) {
     $('sunHand').style.transform = `rotate(${info.dayT * 360 + 180}deg)`;
     const W = info.world; $('dayTag').textContent = W ? `${W.sname}·第${W.sday}天 ${info.hm}` : `第${info.day}天 ${info.hm}`;
     if (W) { const ic = $('wxIc'); const n = 'hud-weather-' + W.wx; if (ic.dataset.ic !== n) { ic.dataset.ic = n; hydrate(ic.parentElement); } ic.parentElement.title = `${W.sname}天 · ${W.wxName}`; }
-    const T = info.trip; if (T) { const tl = T.letters.find(l => !l.seen); if (tl && S.letterShown !== tl.id && info.cards) { const c = info.cards.find(c => c.id === tl.id); if (c) { S.letterShown = tl.id; showLetter(c); api.send({ type: 'lenia', act: 'letter', id: tl.id }); } } $('tripDot').style.display = T.exp && T.exp.phase === 'back' ? 'block' : 'none'; }
+    const T = info.trip; if (T) { const tl = T.letters.find(l => !l.seen); if (tl && S.letterShown !== tl.id && info.cards) { const c = info.cards.find(c => c.id === tl.id); if (c) { S.letterShown = tl.id; showLetter(c, true); api.send({ type: 'lenia', act: 'letter', id: tl.id }); } } $('tripDot').style.display = T.exp && T.exp.phase === 'back' ? 'block' : 'none'; }
     heartTick(L.heart);
     const sd = $('sillDot'); sd.style.display = L.sill.length ? 'block' : 'none'; sd.textContent = L.sill.length;
     renderJobs(); updateDots();
@@ -144,16 +162,22 @@ export function createUI(api) {
   function toast(c, all = S.cards) {
     if (MERGE.has(c.type)) { const same = all.filter(o => o.type === c.type && o.day === c.day); if (same.length >= 2) { for (const o of same) S.toastIds.delete(o.id); if (S.mergedToast) S.toastIds.delete(S.mergedToast.id); c = { ...c, merged: same.length }; S.mergedToast = c; } }
     if (c.type === 'notice') S.extra.push(c);
-    S.toastIds.add(c.id); while (S.toastIds.size > (innerWidth < 900 ? 1 : 2)) S.toastIds.delete(S.toastIds.values().next().value); renderToasts();
-    setTimeout(() => { S.toastIds.delete(c.id); renderToasts(); }, SPECIAL.has(c.type) ? 12000 : 9000);
+    S.toastIds.add(c.id); while (S.toastIds.size > 9) S.toastIds.delete(S.toastIds.values().next().value); renderToasts(); // 最多留 9 条排队，多的折成「还有 N 条」
+    const expire = () => { if (S.toastMode === 'list') { setTimeout(expire, 4000); return; } S.toastIds.delete(c.id); renderToasts(); }; // 玩家展开列表在看时先不收
+    setTimeout(expire, SPECIAL.has(c.type) ? 12000 : 9000);
   }
   const cardItem = (c) => { if (c.item) return c.item; if (c.type === 'combo') { const cb = COMBOS.find(x => c.title.includes(x.name)); return cb ? 'combo_' + cb.id : null; } if (c.type === 'lenia') return ITEM_KEYS.find(k => c.title.includes(ITEMS[k].name)) || null; return null; };
   function renderToasts() {
-    const list = [...S.toastIds].map(id => (S.mergedToast && S.mergedToast.id === id) ? S.mergedToast : S.cards.find(c => c.id === id) || S.extra.find(c => c.id === id)).filter(Boolean);
-    $('toasts').innerHTML = list.map(c => { const on = S.album.some(a => a.id === c.id); const it = cardItem(c); const sp = SPECIAL.has(c.type) || c.type === 'notice';
+    const list = [...S.toastIds].map(id => (S.mergedToast && S.mergedToast.id === id) ? S.mergedToast : S.cards.find(c => c.id === id) || S.extra.find(c => c.id === id)).filter(Boolean).reverse(); // 新的在前
+    const one = (c) => { const on = S.album.some(a => a.id === c.id); const it = cardItem(c); const sp = SPECIAL.has(c.type) || c.type === 'notice';
       return `<div class="toast paper ${sp ? 'special' : ''}"><span class="pin"></span>${it ? itemIc(it, 'thumb') : ''}<div class="grow"><div class="t"><b class="ttlf">${esc(c.merged ? mergeTitle(c.type, c.merged) : c.title)}</b><br>${esc(c.text.length > 46 ? c.text.slice(0, 46) + '…' : c.text)}</div></div>
-      ${c.type === 'notice' ? '' : `<button class="star press" data-act="collect" data-v="${c.id}" title="收进相册">${icon(on ? 'star' : 'star-o')}</button>`}</div>`; }).join('');
-    $('toasts').style.display = list.length ? 'flex' : 'none'; hydrate($('toasts'));
+      <button class="tx press" data-act="toastX" data-v="${c.id}" title="关掉这条" aria-label="关掉这条"></button>${c.type === 'notice' ? '' : `<button class="star press" data-act="collect" data-v="${c.id}" title="收进相册">${icon(on ? 'star' : 'star-o')}</button>`}</div>`; };
+    const n = list.length; if (!n) S.toastMode = 'stack'; let h = '';
+    if (n && S.toastMode === 'chip') h = `<button class="tchip press" data-act="toastChip">通知 ${n} <i class="tarrow"></i></button>`;
+    else if (n && S.toastMode === 'list') h = `<div class="tlist">${list.map(one).join('')}</div><div class="trow"><button class="woodbtn press" data-act="toastLess">收起 <i class="tarrow up"></i></button><button class="woodbtn press" data-act="toastAll">全部关闭</button></div>`;
+    else if (n) h = `<div class="tstack${n > 2 ? ' n3' : n > 1 ? ' n2' : ''}">${one(list[0])}</div>${n > 1 ? `<button class="tmore press" data-act="toastMore">还有 ${n - 1} 条 <i class="tarrow"></i></button>` : ''}`;
+    if ($('toasts')._h !== h) { $('toasts').innerHTML = h; $('toasts')._h = h; hydrate($('toasts')); }
+    $('toasts').style.display = n ? 'flex' : 'none';
   }
   // ---------------------------------------------------------------- 各页
   const FR = { box: 'crate', wish: 'shed', res: 'board', sill: 'sill', album: 'book', dream: 'book', trip: 'board' };
@@ -162,6 +186,7 @@ export function createUI(api) {
     if (S.view === 'box') h = viewBox(I); else if (S.view === 'wish') h = viewWish(I); else if (S.view === 'res') { const r = I.res.find(r => r.id === S.resId); h = r ? viewRes(r, I) : '<div class="empty">找不到这位居民</div>'; }
     else if (S.view === 'sill') h = viewSill(I); else if (S.view === 'album') h = viewAlbum(I); else if (S.view === 'dream') h = viewDream(I); else if (S.view === 'trip') h = viewTrip(I); else if (S.view === 'site') h = viewSite(I); else if (S.view === 'thing') h = viewThing(I); else if (S.view === 'heart') h = viewHeart(I); else if (S.view === 'gate') h = viewGate(I); else if (S.view === 'nugget') h = viewNugget(I);
     $('sheetT').textContent = S.view;
+    dragTip.classList.toggle('on', S.view === 'box' && S.boxTab === 'items' && ITEM_KEYS.some(k => I.lenia.box[k] > 0));
     if (body._h !== h) { body.innerHTML = h; body._h = h; hydrate(body); const s2 = frame.querySelector('.scroll'); if (s2) s2.scrollTop = top ? 0 : st; }
   }
   const closeBtn = `<button class="enamel cream sm x2 press" data-act="close" title="关上">${icon('close')}</button>`;
@@ -171,15 +196,15 @@ export function createUI(api) {
     let h = `<div class="crate"><div class="cbox"><div class="lid">${closeBtn}<div class="plank paper ttlf">Lenia 的储物箱</div><div class="tabs">${tabs.map(([k, n]) => `<button class="${S.boxTab === k ? 'on' : ''}" data-act="boxTab" data-v="${k}">${n}</button>`).join('')}</div></div>`;
     if (S.boxTab === 'items') {
       const keys = ITEM_KEYS.filter(k => L.box[k] > 0); if (!keys.includes(S.boxSel)) S.boxSel = keys[0] || null;
-      const cells = keys.map(k => `<button class="slot ${S.boxSel === k ? 'sel' : ''}" data-act="boxSel" data-v="${k}">${itemIc(k)}<span class="n">${L.box[k]}</span></button>`);
+      const cells = keys.map(k => `<button class="slot ${S.boxSel === k ? 'sel' : ''}" data-act="boxSel" data-v="${k}">${itemIc(k)}${recipeMark(L, k)}<span class="n">${L.box[k]}</span></button>`);
       while (cells.length < 8 || cells.length % 4) cells.push(`<div class="slot empty"></div>`);
       h += `<div class="cavity scroll"><div class="slots">${cells.join('')}</div></div></div>`;
       if (S.boxSel) { const k = S.boxSel, it = ITEMS[k]; const dx = L.idex[k]; const known = dx ? dx.uses : [];
-        const combos = COMBOS.filter(c => c.a === k || c.b === k); const found = combos.filter(c => L.cdex[c.id]);
+        const combos = COMBOS.filter(c => c.a === k || c.b === k);
         const tags = `${it.season ? `<span class="chip g">${SEASON_NAME[it.season]}天限定</span>` : ''}${DAMP_RATE[it.mat] ? `<span class="chip b">${MAT_LABEL[it.mat]} · 怕淋雨</span>` : ''}`;
         h += `<div class="detail"><div class="card paper">${itemIc(k, 'big')}<div class="grow"><div class="nm ttlf">${esc(it.name)} ${tags}</div><div class="ds">${esc(it.desc)}</div>
           <div class="chips">${it.uses.map(u => known.includes(u.name) ? `<span class="chip g">${esc(u.name)}</span>` : `<span class="chip">？？？</span>`).join('')}</div>
-          <div class="ds" style="margin-top:4px">${found.length ? '组合过：' + found.map(c => c.name).join('、') : combos.length ? '和别的东西挨着放，也许会有惊喜' : ''}${it.size === 'big' ? ' · 大件，要好几个人拖' : ''}</div></div></div>
+          ${recipeRows(L, k, combos)}${it.size === 'big' ? '<div class="ds" style="margin-top:4px">大件，要好几个人拖</div>' : ''}</div></div>
           <div class="gobtn"><button class="enamel green big press" data-act="place" title="放进花园">${icon('hand')}</button>放进花园</div></div>`; }
       else h += `<div class="detail empty" style="color:#fff3d8">箱子空了。<br>收下窗台上的回礼攒心意，去 Lenia 家「阁楼」里找找。</div>`;
     } else if (S.boxTab === 'seeds') {
@@ -267,7 +292,8 @@ export function createUI(api) {
     for (const k of ITEM_KEYS) { const d = L.idex[k]; const it = ITEMS[k];
       h += `<div class="dexc paper ${d ? '' : 'no'}">${itemIc(k)}<div class="ttlf">${d ? esc(it.name) : '？？？'}</div><div class="chips" style="justify-content:center">${it.uses.map(u => d && d.uses.includes(u.name) ? `<span class="chip g">${esc(u.name)}</span>` : '<span class="chip">？</span>').join('')}</div></div>`; }
     h += `</div><div class="sec">组合惊喜</div><div class="dexg">`;
-    for (const c of COMBOS) { const d = L.cdex[c.id]; h += `<div class="dexc paper ${d ? '' : 'no'}">${itemIc('combo_' + c.id)}<div class="ttlf">${d ? esc(c.name) : '？？？'}</div><div class="muted">${d ? `${ITEMS[c.a].name} + ${ITEMS[c.b].name} · 第${d.day}天` : '两样东西挨着放…'}</div></div>`; }
+    for (const c of COMBOS) { const d = L.cdex[c.id], kn = !d && known(L, c.id); // 三态：拼出过（彩色）/ 知道配方没拼过（线稿 + 配方）/ 没见过（？？？）
+      h += `<div class="dexc paper ${d ? '' : kn ? 'kn' : 'no'}">${itemIc('combo_' + c.id)}<div class="ttlf">${d || kn ? esc(c.name) : '？？？'}</div>${kn ? `<div class="rcpi mini">${itemIc(c.a)}<i>+</i>${itemIc(c.b)}</div><div class="muted">${ITEMS[c.a].name} + ${ITEMS[c.b].name}<br>已知配方 · 未拼过</div>` : `<div class="muted">${d ? `${ITEMS[c.a].name} + ${ITEMS[c.b].name} · 第${d.day}天` : '两样东西挨着放…'}</div>`}</div>`; }
     h += `</div><div class="sec">远方捡到的物件</div><div class="dexg">`;
     for (const k of OBJ_KINDS) { const c = I.cat[k]; h += `<div class="dexc paper ${c ? '' : 'no'}"><div class="ttlf">${c ? OBJ_NAME[k] : '？？？'}</div><div class="muted">${c ? `捡到 ${c.n} 次` : `${TEAM[k]} 人才拖得动`}</div>${c ? `<div class="chips" style="justify-content:center">${c.uses.map(u => `<span class="chip g">${esc(u)}</span>`).join('')}</div>` : ''}</div>`; }
     h += `</div><div class="sec">小材料</div><div class="paper" style="padding:8px">${MATS.map(m => `<span class="chip ${['twig', 'stone', 'grass'].includes(m) ? 'g' : 'o'}">${MAT_NAME[m]} ${I.mats[m] || 0}</span>`).join(' ')}</div>`;
@@ -454,10 +480,11 @@ export function createUI(api) {
     h += `<div class="muted" style="margin-top:6px">完成 ${T.done} 次远行${T.open.length < DEST_KEYS.length ? `，再走 ${DESTS[DEST_KEYS.find(k => !T.open.includes(k))].unlock - T.done} 次能打听到新地方` : '，地图上的地方都去过了'}。</div>`;
     return h + `</div></div></div>`;
   }
-  function showLetter(c) {
-    const paras = c.text.split('\n'); const on = S.album.some(a => a.id === c.id);
-    $('letterB').innerHTML = `<div class="stampx">${icon('map')}</div><h3 class="ttlf">${esc(c.title)}</h3><div class="muted">第${c.day}天 · ${(c.names || []).map(esc).join('、')}寄来的</div>
+  function showLetter(c, fresh = false) {
+    const paras = c.text.split('\n'); const on = S.album.some(a => a.id === c.id); const rp = c.recipe && COMBOS.find(x => x.id === c.recipe.id);
+    $('letterB').innerHTML = `<div class="stampx">${icon('map')}</div><h3 class="ttlf">${esc(c.title)}</h3><div class="muted">第${c.day}天 · ${(c.names || []).map(esc).join('、')}寄来的</div>${rp && fresh ? `<button class="rnew" data-act="letterRecipe">${icon('item:combo_' + rp.id)}信里夹着一张新配方卡<span>点我看</span></button>` : ''}
       ${paras.map(p => `<p>${esc(p)}</p>`).join('')}${c.finds && c.finds.length ? `<div class="sec">带回来的东西（已经放进储物箱）</div><div>${c.finds.map(f => `<span class="chip o">${esc(f)}</span>`).join(' ')}</div>` : ''}
+      ${rp ? `<div class="rcard ${fresh ? 'fresh' : ''}"><span class="rtape"></span><div class="rtag">${fresh ? '新学会一个拼法' : '路上学到的拼法'}</div><div class="rsay">${esc(c.recipe.line)}</div><div class="rwho">${recipeIcons(rp.a, rp.b, rp.id)}<span><b>${esc(ITEMS[rp.a].name)}</b> + <b>${esc(ITEMS[rp.b].name)}</b><br>能拼成 <b>${esc(rp.name)}</b></span></div><div class="rnote">去储物箱看看，把它们放在一起试试。</div></div>` : ''}
       <div class="row" style="margin-top:12px;gap:8px"><button class="woodbtn" style="flex:1" data-act="letterOk">收下</button><button class="woodbtn green" style="flex:1" data-act="letterKeep" data-v="${c.id}" ${on ? 'disabled' : ''}>${on ? '已经在相册里' : '收进相册'}</button></div>`;
     $('letter').classList.add('open'); hydrate($('letterB'));
   }
@@ -483,6 +510,66 @@ export function createUI(api) {
       if (S.view === 'site') render(); else if (r.ok || r.why) toast({ id: -Date.now(), type: 'notice', title: r.ok ? '好啦' : '没成', text: r.why }); return; }
     if (!r.ok && r.why) toast({ id: -Date.now(), type: 'notice', title: '没成', text: r.why }); else if (r.act === 'unlock' || r.act === 'seed') toast({ id: -Date.now(), type: 'notice', title: '找到啦', text: r.why, item: r.act === 'unlock' ? S.atticSel : null });
     else if (r.act === 'trip' && r.ok) { S.trip.rids = []; toast({ id: -Date.now(), type: 'notice', title: '小队出发了', text: r.why }); close(); if (api.tripStart) api.tripStart(S.trip.going, S.trip.goRid); } }
+  // ---------------------------------------------------------------- 储物箱：按住旧物，直接拖进花园
+  // 按住约 0.3 秒（鼠标：明显拖动；手机：按住不动或横着拖）→ 格子里的旧物浮起；拖出箱沿 → 箱子往下收、交给 main.js 的放置模式（3D 手、大视野、边缘滚动、金圈、绿红判定都复用）；
+  // 绿色处松手 = 放下；红色处松手 = 旧物飞回箱子并说明原因。手机上的纵向滑动（还没按够就移动）不会触发拖动。
+  const HOLD_MS = 300, MOVE_TOL = 8;
+  const dragTip = document.createElement('div'); dragTip.id = 'dragTip'; dragTip.className = 'paper ttlf'; dragTip.textContent = '按住旧物，拖进花园'; frame.appendChild(dragTip);
+  let bd = null, tipTimer = 0;
+  const cellOf = (k) => body.querySelector(`.slot[data-act="boxSel"][data-v="${k}"]`);
+  const cleanCells = () => { for (const c of body.querySelectorAll('.slot.lift,.slot.away')) c.classList.remove('lift', 'away'); };
+  const makeGhost = (k) => { const g = document.createElement('div'); g.id = 'dragGhost'; g.innerHTML = itemIc(k); hydrate(g); document.body.appendChild(g); return g; };
+  const putGhost = (g, x, y) => { g.style.left = x + 'px'; g.style.top = y + 'px'; };
+  function setTip(text, bad = false, ms = 0) { dragTip.textContent = text; dragTip.classList.toggle('bad', bad); clearTimeout(tipTimer); if (ms) tipTimer = setTimeout(() => { dragTip.textContent = '按住旧物，拖进花园'; dragTip.classList.remove('bad'); }, ms); }
+  function dragStop() { if (!bd) return; clearTimeout(bd.timer); if (bd.ghost) bd.ghost.remove(); cleanCells(); dragTip.classList.remove('hot'); try { body.releasePointerCapture(bd.id); } catch (e) { } bd = null; }
+  function dragArm() {
+    if (!bd || bd.on) return; bd.on = true; const c = cellOf(bd.k); if (c) c.classList.add('lift'); dragTip.classList.add('hot');
+    try { body.setPointerCapture(bd.id); } catch (e) { /* 不支持就算了 */ }
+  }
+  body.addEventListener('pointerdown', (e) => {
+    if (bd || document.body.classList.contains('mode') || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const c = e.target.closest('.slot[data-act="boxSel"]'); if (!c || S.boxTab !== 'items') return; const k = c.dataset.v; if (!(S.info && S.info.lenia.box[k] > 0)) return;
+    bd = { k, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse', on: false, moved: false, handed: false, ghost: null };
+    bd.timer = setTimeout(dragArm, HOLD_MS);
+  });
+  body.addEventListener('pointermove', (e) => {
+    if (!bd || bd.handed || e.pointerId !== bd.id) return; bd.x = e.clientX; bd.y = e.clientY; const dx = e.clientX - bd.x0, dy = e.clientY - bd.y0, d = Math.hypot(dx, dy);
+    if (!bd.on) {
+      if (bd.touch ? (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.6) : d > 6) dragArm(); // 手机：横着拖算拖出；鼠标：明显拖动
+      else if (bd.touch && d > MOVE_TOL) { dragStop(); return; } // 手机上还没按够就动了：是在滑动列表，不拿旧物
+      if (!bd.on) return;
+    }
+    if (d < 5 && !bd.moved) return;
+    if (!bd.moved) { bd.moved = true; const c = cellOf(bd.k); if (c) { c.classList.remove('lift'); c.classList.add('away'); } bd.ghost = makeGhost(bd.k); }
+    const gy = e.clientY - (bd.touch ? 32 : 0); putGhost(bd.ghost, e.clientX, gy);
+    const r = frame.getBoundingClientRect(); // 越过箱沿 8px：箱子下收，进入放置模式（同一次按压一路拖进花园）
+    if (e.clientX < r.left - 8 || e.clientX > r.right + 8 || gy < r.top - 8) {
+      if (api.dragPlace && api.dragPlace(bd.k, e)) { bd.handed = true; bd.ghost.remove(); bd.ghost = null; document.body.classList.add('boxdrag'); sheet.classList.add('tuck'); }
+    }
+  });
+  const dragUp = (e) => {
+    if (!bd || bd.handed || e.pointerId !== bd.id) return; const was = bd; dragStop();
+    if (e.type === 'pointerup' && was.on && !was.moved) { S.boxSel = was.k; render(); } // 按住了但没拖：当作点选
+    if (was.moved) { const stop = (ev) => ev.stopPropagation(); document.addEventListener('click', stop, { capture: true, once: true }); setTimeout(() => document.removeEventListener('click', stop, true), 60); }
+  };
+  body.addEventListener('pointerup', dragUp); body.addEventListener('pointercancel', dragUp);
+  document.addEventListener('touchmove', (e) => { if (bd && bd.on && e.cancelable) e.preventDefault(); }, { passive: false }); // 按住之后再动，不让列表跟着滚
+  body.addEventListener('contextmenu', (e) => { if (e.target.closest('.slot')) e.preventDefault(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && bd && !bd.handed) dragStop(); });
+  // 放置模式那边松手之后回来：放下了 → 关箱子；没放成 → 旧物飞回格子、箱子弹出来，并说明原因
+  function boxDragDone() { document.body.classList.remove('boxdrag'); sheet.classList.remove('tuck'); dragStop(); close(); }
+  function boxDragBack(pt, why) {
+    const k = bd && bd.k; document.body.classList.remove('boxdrag'); dragStop(); if (k == null) { sheet.classList.remove('tuck'); return; }
+    const g = makeGhost(k); putGhost(g, pt.x, pt.y);
+    frame.style.transition = 'none'; sheet.classList.remove('tuck'); void frame.offsetWidth; const c = cellOf(k), r = c && c.getBoundingClientRect(); sheet.classList.add('tuck'); void frame.offsetWidth; frame.style.transition = ''; sheet.classList.remove('tuck');
+    if (c) c.classList.add('away');
+    const to = r ? [r.left + r.width / 2, r.top + r.height / 2] : [pt.x, pt.y];
+    const an = g.animate([{ left: pt.x + 'px', top: pt.y + 'px', opacity: 1 }, { left: to[0] + 'px', top: to[1] + 'px', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.3,1.3,.5,1)', fill: 'forwards' });
+    const fin = () => { g.remove(); cleanCells(); const c2 = cellOf(k); if (c2) c2.animate([{ transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'ease-out' }); };
+    an.onfinish = fin; setTimeout(() => { if (g.isConnected) fin(); }, 700);
+    if (why) setTip(why, true, 2600);
+  }
+  const boxPointIn = (x, y) => { const r = frame.getBoundingClientRect(); return sheet.classList.contains('tuck') ? y > r.top - 4 : x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
   function holdGift(on) { S.giftHold = on; if (!on && S.pendingGift) { const g = S.pendingGift; S.pendingGift = null; if (!g.seen && S.giftShown !== g.id) { S.giftShown = g.id; showGift(g); } } }
-  return { onInfo, onDreamResult, onLenia, openRes, openSite, openThing, openGate, openNugget, render, showThought, hideThought, setTab, close, toast, showLetter, holdGift, get state() { return S; } };
+  return { onInfo, onDreamResult, onLenia, openRes, openSite, openThing, openGate, openNugget, render, showThought, hideThought, setTab, close, toast, showLetter, holdGift, boxDragDone, boxDragBack, boxPointIn, get state() { return S; } };
 }

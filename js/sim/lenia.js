@@ -4,10 +4,11 @@ import { DAY, TAU, clamp, isNight, SPECIES, SP_NAME, CAP, MAT_NAME, MATS, STREAM
 import { ITEMS, ITEM_KEYS, TEMPLATE_OF, renderKindOf, START_BOX, START_UNLOCK, START_SEEDS, COMBOS, comboOf, COMBO_R, FAC, GIFTS, SEEDS, FLOWER_DAY, MAX_FLOWERS, MAX_SILL, noteText, TOWN_WISHES, WISH_ORDER, placeCheck, streamSide, TOWN_SIDE, ITEM_TEAM, WORN, puddleUses, inSeason, matSources } from '../shared/items.js';
 import { calendar, SEASON_NAME } from '../shared/seasons.js';
 import { footOf, bodyGap, COMBO_GAP } from '../shared/footprint.js';
+import { RECIPE_START } from '../shared/journey.js';
 import { movable, moveCheck } from '../shared/items.js';
 const ACT_WALK = 1;
 
-const LOOK_R = 34, MAX_WATCH = 5;
+const LOOK_R = 34, MAX_WATCH = 5, HOLD_MS = 5 * 60e3; // HOLD_MS：教程“等一等”最长真实 5 分钟
 export const EMO = { Q: 1, WOW: 2, NOTE: 3, TALK: 4 };
 
 export function installLenia(Sim) {
@@ -15,13 +16,14 @@ export function installLenia(Sim) {
   P.leniaFresh = function () {
     this.notices = this.notices || []; this.box = { ...START_BOX }; this.unlocked = [...START_UNLOCK]; this.seeds = { ...START_SEEDS }; this.heart = 8; // 开局 8 点 = 原来的心意 2 + 梦的力气 6
     this.sill = []; this.giftId = 1; this.flowers = []; this.flowerId = 1; this.tw = []; this.twDone = []; this.idex = {}; this.cdex = {}; this.giftQ = [];
+    this.recipes = Object.fromEntries(RECIPE_START.map(id => [id, { day: 0, from: 'start' }])); // 已知配方：{ 组合id: { day, from } }，开局只知道茶壶 + 毛线球
     this.nextDaily = Math.floor(this.t / DAY) * DAY + DAY * 0.3; if (this.nextDaily < this.t) this.nextDaily += DAY;
     this.nextAttic = this.t + DAY * 1.6; this.bridges = 0; this.lstats = { drops: 0, decided: 0, combos: 0, gifts: 0, giftsTaken: 0, planted: 0, watered: 0, bloomed: 0, twDone: 0, unlocks: 0, mat: 0, festival: 0 };
     for (const k of WISH_ORDER.slice(0, 3)) this.addTownWish(k);
   };
   // ---------------------------------------------------------------- 摆放
   P.placeState = function () { return { lots: this.lots.slice(), snowmen: this.snowmen || [], nodes: this.nodes.map(n => [n.x, n.z, n.k]), edges: this.edges, bridges: this.bridges, flowers: this.flowers.map(f => [f.x, f.z]), puddles: (this.puddles || []).map(p => [Math.round(p.x * 100) / 100, Math.round(p.z * 100) / 100, Math.round(p.r * 100) / 100, p.id]) }; }; // 和发给主线程的 struct 同样取两位小数：金圈、绿红判定两边算得一模一样
-  P.dropItem = function (item, x, z, rot = 0) {
+  P.dropItem = function (item, x, z, rot = 0, hold = false) {
     const it = ITEMS[item]; if (!it) return { ok: false, why: '没有这件东西' };
     if (!(this.box[item] > 0)) return { ok: false, why: `储物箱里没有${it.name}了` };
     const kind = renderKindOf(item); const r = this.K[kind].r;
@@ -29,6 +31,7 @@ export function installLenia(Sim) {
     if (chk.gold) { x = chk.gold.x; z = chk.gold.z; rot = chk.gold.rot; } // 放进金圈：对齐圈心落下
     this.box[item]--; if (!this.box[item]) delete this.box[item];
     const lot = this.newLot(kind); lot.item = item; lot.name = it.name;
+    if (hold) lot.hold = Date.now() + HOLD_MS; // 新手教程：先别让小动物商量它的用途（临时字段，不进存档；到点自动解除）
     const pd = chk.puddle ? this.puddles.find(p => p.id === chk.puddle) : null;
     if (pd) { lot.pond = Math.max(pd.r, r + 0.6); this.puddles = this.puddles.filter(p => p !== pd); this.wstats.puddleUses++; if (placeCheck(pd.x, pd.z, r, this.placeState(), 'item', { item, rot }).ok) { x = pd.x; z = pd.z; } } // 放进水洼：水洼留下来变成它的池子
     Object.assign(lot, { x, z, fx: x, fz: z, rot, stage: 'landed', landT: this.t, look: { seen: [], t2: 0, sum: 0 } });
@@ -40,6 +43,10 @@ export function installLenia(Sim) {
     this.summon(lot, LOOK_R);
     return { ok: true, id: lot.id, why: chk.why, x, z };
   };
+  // 新手教程的“等一等”标记：解除全部（教程结束 / 跳过时调用）
+  // 新手教程：组合落成时周围的小动物开心地蹦一下、冒音符
+  P.celebrate = function (id) { const l = this.lotById(id); if (!l) return { ok: false, silent: true }; let n = 0; for (const r of this.res) if (!r.away && Math.hypot(r.x - l.x, r.z - l.z) < 16) { this.emo(r, EMO.NOTE, 4, { k: 'celebrate' }); r.mood = Math.min(100, r.mood + 5); n++; } return { ok: true, n, silent: true }; };
+  P.releaseHold = function () { let n = 0; for (const l of this.lots) if (l.hold) { delete l.hold; n++; } return { ok: true, n, silent: true }; };
   P.summon = function (lot, R) {
     if (isNight(this.dayT())) return 0; lot.look.sum = this.t; let n = 0;
     const busy = new Set(['eat', 'forage', 'sleep', 'camp', 'shop', 'tend', 'gawk', 'arrive', 'trip', 'rescue', 'fest', 'snowman', 'shelter']);
@@ -61,6 +68,7 @@ export function installLenia(Sim) {
     const night = isNight(this.dayT());
     for (const lot of this.lots) {
       if (lot.stage !== 'landed' || lot.carry || lot.rescuer) continue; // 正被抱去躲雨：先别商量用途
+      if (lot.hold) { if (Date.now() < lot.hold) continue; delete lot.hold; } // 教程里等着拼金圈：到点（真实 5 分钟）自动放开
       const w = this.watchers(lot); for (const r of w) { if (!lot.look.seen.includes(r.id)) { lot.look.seen.push(r.id); this.emo(r, this.rng() < 0.5 ? EMO.WOW : EMO.Q, 3, { k: 'gawk', a: ITEMS[lot.item].name }); } }
       if (night) continue;
       if (w.length < 2 && this.t - lot.look.sum > 25) this.summon(lot, this.t - lot.landT > 60 ? Math.max(80, Math.hypot(lot.x, lot.z) + 50) : LOOK_R + 12); // 放在花园外圈的：多等一会儿，镇上的都能听见
@@ -162,7 +170,7 @@ export function installLenia(Sim) {
     return p;
   };
   P.buildInPlace = function (lot, w) {
-    if (lot.use !== 'home' && lot.use !== 'shop') lot.paid = 3; // 设施、摆设、桥：不用小材料，干活就行
+    if ((lot.use !== 'home' && lot.use !== 'shop') || (lot.fast && Date.now() < lot.fast)) lot.paid = 3; // 教程加速的组合也不用小材料；设施、摆设、桥：不用小材料，干活就行
     lot.stage = 'renovate'; lot.prog = 0;
     if (lot.node < 0 || lot.node == null) { const c = Math.cos(lot.rot), s = Math.sin(lot.rot); const dl = this.K[lot.kind].door; lot.door = [lot.x + dl[0] * c + dl[1] * s, lot.z - dl[0] * s + dl[1] * c]; lot.node = -1; }
     const p = this.makeProject(lot, [[lot.x, lot.z], [lot.x, lot.z]]); p.stage = 'renovate'; p.yaw = lot.rot; p.cum = [0, 0]; this.projects.push(p); this.ver++;
@@ -190,13 +198,16 @@ export function installLenia(Sim) {
     const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2; const kind = c.base || 'combo_' + c.id;
     this.lots = this.lots.filter(l => l !== a && l !== b);
     const lot = this.newLot(kind); lot.item = 'combo'; lot.combo = c.id; lot.name = c.name; lot.use = c.u === 'fac' ? 'fac' : c.u; lot.fac = c.fac || null; lot.shop = c.shop || null;
+    if (c.u === 'home') lot.usp = c.sp || this.neediestSp() || this.pick(SPECIES); // 家类组合：写明给哪种小动物住（没写就给最缺家的那种）
     Object.assign(lot, { x: mx, z: mz, fx: mx, fz: mz, rot: a.rot, node: -1, stage: 'pick' });
     // 两件合成一个整体（一个占地）：中点放得下就放中点，放不下就挪到最近的空地，绝不插进别人家里
     const sp = this.nearFit(lot, mx, mz) || this.nearFit(lot, a.x, a.z) || this.nearFit(lot, b.x, b.z, { maxD: 30 });
     if (sp) Object.assign(lot, { x: sp.x, z: sp.z, fx: sp.x, fz: sp.z, rot: sp.rot }); else { this.lots.push(a, b); this.nextLot--; return null; } // 实在没地方合成：各自按原样商量用途
+    if (a.hold || b.hold) lot.fast = Date.now() + HOLD_MS; // 新手教程这一次组合：施工加速（临时字段，不进存档，到点失效），让玩家在十几秒里看到它落成
     this.lots.push(lot);
     const all = [...new Set([...w, ...this.watchers(b)])];
-    const first = !this.cdex[c.id]; if (first) this.cdex[c.id] = { day: this.day() }; this.lstats.combos++;
+    if (lot.fast) { const free = this.res.filter(o => !all.includes(o) && !o.away && !o.haul && !o.dream && !['sleep', 'trip', 'camp', 'tend', 'build'].includes(o.job)).sort((p, q) => Math.hypot(p.x - lot.x, p.z - lot.z) - Math.hypot(q.x - lot.x, q.z - lot.z)); while (all.length < 4 && free.length) { const o = free.shift(); this.interrupt(o, '听说有新鲜事，跑去帮忙'); all.push(o); } } // 教程：不管离得多远、手头在忙什么，叫上最近的几位小动物跑来施工（它们小跑着赶来）
+    const first = !this.cdex[c.id]; if (first) this.cdex[c.id] = { day: this.day() }; if (!this.recipes[c.id]) this.recipes[c.id] = { day: this.day(), from: 'made' }; this.lstats.combos++;
     for (const r of all) { this.emo(r, EMO.WOW, 5, { k: 'combo', a: ITEMS[c.a].name, b: ITEMS[c.b].name, c: c.name }); r.mood = Math.min(100, r.mood + 10); this.remember(r, `看见${ITEMS[c.a].name}和${ITEMS[c.b].name}变成了${c.name}`); }
     this.buildInPlace(lot, all);
     const names = all.length ? all.slice(0, 4).map(r => r.name).join('、') : '大家';
@@ -442,19 +453,22 @@ export function installLenia(Sim) {
   };
   // ---------------------------------------------------------------- 输出 / 存档
   P.leniaInfo = function () {
-    return { price: Object.fromEntries(ITEM_KEYS.map(k => [k, this.itemPrice(k)])), box: { ...this.box }, unlocked: this.unlocked.slice(), seeds: { ...this.seeds }, heart: this.heart, sill: this.sill.slice(), idex: this.idex, cdex: this.cdex, lstats: { ...this.lstats }, bridges: this.bridges,
+    return { price: Object.fromEntries(ITEM_KEYS.map(k => [k, this.itemPrice(k)])), box: { ...this.box }, unlocked: this.unlocked.slice(), seeds: { ...this.seeds }, heart: this.heart, sill: this.sill.slice(), idex: this.idex, cdex: this.cdex, recipes: this.recipes, lstats: { ...this.lstats }, bridges: this.bridges,
       flowers: { n: this.flowers.length, bloom: this.flowers.filter(f => f.g >= 1).length, dry: this.flowers.filter(f => f.g < 1 && f.w <= 0).length },
       tw: this.tw.map(w => ({ items: TOWN_WISHES[w.k].items, k: w.k, sp: w.sp || null, title: this.twTitle(w), need: TOWN_WISHES[w.k].need, say: TOWN_WISHES[w.k].say.replace('{sp}', w.sp ? SP_NAME[w.sp] : '小动物'), who: w.sp || TOWN_WISHES[w.k].who, p: w.p ?? this.twProgress(w), day: w.day, reward: TOWN_WISHES[w.k].reward })), twDone: this.twDone.slice(0, 8), notices: this.notices.slice(),
       landed: this.lots.filter(l => l.stage === 'landed').map(l => ({ id: l.id, item: l.item, x: l.x, z: l.z, look: l.look ? l.look.seen.length : 0, who: l.look ? this.watchers(l).map(r => r.id) : [], talk: l.look ? Math.min(1, l.look.t2 / 12) : 0, old: !!l.old })) };
   };
   P.leniaSave = function () {
     const R2 = (v) => Math.round(v * 100) / 100;
-    return { box: this.box, un: this.unlocked, se: this.seeds, he: this.heart, si: this.sill, gi: this.giftId, fl: this.flowers.map(f => [f.id, R2(f.x), R2(f.z), f.k, R2(f.g), R2(f.w)]), fi: this.flowerId, tw: this.tw, twd: this.twDone, id: this.idex, cd: this.cdex, gq: this.giftQ, nd: R2(this.nextDaily), na: R2(this.nextAttic), br: this.bridges, ls: this.lstats, bo: this.bought || {}, mg: this.mg || {} };
+    return { box: this.box, un: this.unlocked, se: this.seeds, he: this.heart, si: this.sill, gi: this.giftId, fl: this.flowers.map(f => [f.id, R2(f.x), R2(f.z), f.k, R2(f.g), R2(f.w)]), fi: this.flowerId, tw: this.tw, twd: this.twDone, id: this.idex, cd: this.cdex, rc: this.recipes, gq: this.giftQ, nd: R2(this.nextDaily), na: R2(this.nextAttic), br: this.bridges, ls: this.lstats, bo: this.bought || {}, mg: this.mg || {} };
   };
   P.leniaLoad = function (L) {
     this.leniaFresh(); if (!L) return;
     Object.assign(this, { box: L.box || {}, unlocked: L.un || [...START_UNLOCK], seeds: L.se || {}, heart: L.he || 0, sill: L.si || [], giftId: L.gi || 1, flowerId: L.fi || 1, tw: L.tw || this.tw, twDone: L.twd || [], idex: L.id || {}, cdex: L.cd || {}, giftQ: L.gq || [], nextDaily: L.nd ?? this.nextDaily, nextAttic: L.na ?? this.nextAttic, bridges: L.br || 0, lstats: { ...this.lstats, ...(L.ls || {}) }, bought: L.bo || {}, mg: L.mg || {} });
     this.flowers = (L.fl || []).map(a => ({ id: a[0], x: a[1], z: a[2], k: a[3], g: a[4], w: a[5] }));
+    // 配方：旧档（没有 rc）由已拼出过的组合 + 茶壶毛线球补齐，不补发别的；新档保留存下来的，再把拼出过的并进去
+    this.recipes = L.rc ? { ...L.rc } : Object.fromEntries(RECIPE_START.map(id => [id, { day: 0, from: 'start' }]));
+    for (const id in this.cdex) if (!this.recipes[id]) this.recipes[id] = { day: this.cdex[id].day || 0, from: 'made' };
     if (!this.lstats.firstDone && (this.lots || []).some(l => l.done && l.item)) this.lstats.firstDone = { day: 0, name: '', item: '' }; // 旧存档：早就改造过了，不再算“第一次”
   };
 }

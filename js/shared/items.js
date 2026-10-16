@@ -85,6 +85,19 @@ export const COMBOS = [
   { id: 'thimblegarden', sign: '顶针花园', a: 'flowerpot', b: 'thimble', name: '顶针花园', u: 'fac', fac: 'garden', r: 2.6, h: 2.5, story: '顶针扣在花盆边上当小水桶，接住的雨水刚好够浇一圈花。' },
   { id: 'library', sign: '图书馆', a: 'oldbook', b: 'pencil', name: '小小图书馆', u: 'fac', fac: 'school', r: 3.2, h: 4, story: '旧书立起来当墙，铅笔横过去当房梁。现在每天下午都有人在里面念故事。' },
   { id: 'duckboat', sign: '鸭子拖船', a: 'rubberduck', b: 'boot', name: '小黄鸭拖船', u: 'fac', fac: 'dock', r: 3.6, h: 4, story: '小黄鸭在前面拉，雨靴在后面装货，小镇有了第一条船。' },
+  // ---- 第二批 12 对（模型见 render/props.js 的 COMBO_MODEL）
+  { id: 'toastbake', sign: '吐司烘焙坊', a: 'toaster', b: 'cookietin', name: '吐司饼干烘焙坊', u: 'shop', shop: 'bakery', r: 3.8, h: 6.4, story: '吐司机稳稳地坐在饼干盒上，拨杆一按，金黄的吐司片就“嘣”地弹出来。整个小镇都被烤面包的香味叫醒了，大家排着队来买。' },
+  { id: 'honeytea', sign: '蜂蜜茶摊', a: 'honeyjar', b: 'teacup', base: 'cup', name: '蜂蜜茶摊', u: 'shop', shop: 'tea', r: 4.4, h: 5, story: '大茶杯里倒满热茶，再淋上一大勺蜂蜜罐里的蜂蜜。小熊趴在摊子上，一口气喝了三杯，嘴边全是甜甜的蜂蜜。' },
+  { id: 'yarncradle', sign: '蛋壳摇篮', a: 'eggshell', b: 'yarn', base: 'egg', name: '毛线蛋壳摇篮', u: 'home', sp: 'chick', r: 4.2, h: 5, story: '大蛋壳里铺满软软的毛线，边上还系了一圈红毛线领子，像一只暖暖的小摇篮。小鸡们说，钻进去就像回到了蛋里，睡得特别香。' },
+  { id: 'tinwell', sign: '罐头辘轳井', a: 'fishtin', b: 'spool', name: '罐头辘轳井', u: 'fac', fac: 'well', r: 2.6, h: 5, story: '线轴当辘轳架在鱼罐头上，摇一摇，蓝线放下去，小水桶就咕噜咕噜打上水来。罐头里的水清清凉凉，附近的花喝得饱饱的，长得更快了。' },
+  { id: 'glasshouse', sign: '玻璃温室', a: 'glassjar', b: 'flowerpot', name: '玻璃罐温室', u: 'fac', fac: 'garden', r: 2.8, h: 3.6, story: '玻璃罐倒扣在花盆上，里面暖烘烘、湿漉漉的。种子还没来得及伸懒腰就发了芽，附近的花也跟着长得更快。' },
+  { id: 'umbrellatea', sign: '雨伞茶座', a: 'umbrella', b: 'teacup', name: '雨伞茶座', u: 'fac', fac: 'table', r: 3.2, h: 6, story: '撑开的格子伞当遮阳棚，大茶杯当圆桌。春雨淅淅沥沥，饿了的小家伙都挤到伞底下，围着圆桌吃点心、聊闲天。' },
+  { id: 'kiteflag', sign: '风筝旗杆', a: 'kite', b: 'pencil', name: '风筝旗杆', u: 'fac', fac: 'flag', r: 2.6, h: 5.3, story: '长铅笔立在草地上当旗杆，风筝系在线上飞得高高的。风一吹，远处的小动物一眼就看见了小镇，新邻居来得也更快了。' },
+  { id: 'strawhome', sign: '草帽贝壳屋', a: 'strawhat', b: 'shell', name: '草帽贝壳小屋', u: 'home', r: 2.6, h: 4.6, story: '草帽扣在小圆屋上当屋顶，屋顶上再立一枚大贝壳。夏天屋里凉飕飕的，贴着墙还能听见海的声音。' },
+  { id: 'popseesaw', sign: '冰棍跷跷板', a: 'popsicle', b: 'button', name: '冰棍跷跷板', u: 'fac', fac: 'play', r: 2.4, h: 3.2, story: '一把冰棍棍拼成长长的木板，架在立起来的大纽扣上。这头翘起来，那头“咚”地落下，小家伙们排着队抢着玩，玩着玩着就更要好了。' },
+  { id: 'pumpkinstore', sign: '南瓜储藏室', a: 'pumpkin', b: 'rake', name: '南瓜储藏室', u: 'fac', fac: 'shed', r: 3.2, h: 5, story: '南瓜掏空了，里面又干燥又凉快。落叶耙靠在门边，扫来的栗子、干草和小材料都堆进去，能多放不少。' },
+  { id: 'bellboot', sign: '铃铛钟楼', a: 'jinglebell', b: 'boot', name: '铃铛靴子钟楼', u: 'fac', fac: 'bell', r: 2.4, h: 8, story: '雨靴立在草地上，顶上搭了个小亭子，挂起一只金铃铛。风一吹就叮叮当当，大家听着钟声起床，整个冬天都有了盼头。' },
+  { id: 'mittenhome', sign: '手套暖暖屋', a: 'mittens', b: 'hotbottle', name: '手套暖暖屋', u: 'home', r: 3.0, h: 5.2, story: '暖水袋当屋子，毛线手套守在门口两边。一进门就暖烘烘的，外面雪下得再大，里面也一点儿都不冷。' },
 ];
 for (const c of COMBOS) ITEM_K['combo_' + c.id] = { r: c.r, door: [0, c.r + 0.2], h: c.h };
 for (const k in ITEM_K) { ITEM_TEAM[k] = ITEM_TEAM[k] || 2; TEAM[k] = ITEM_TEAM[k]; CAP[k] = 2; KIND_DEFAULT[k] = ITEM_K[k]; }
@@ -116,7 +129,7 @@ export const FAC = {
   flag: { name: '旗杆', verb: '看了一会儿旗子', fx: '远处的小动物更容易找到小镇，新邻居来得更快' },
   post: { name: '邮局', verb: '寄了一张小纸条', fx: '窗台上每天多一份回礼' },
   bell: { name: '钟', verb: '敲了一下钟', fx: '听着钟声起床，大家早上精神更好' },
-  lamp: { name: '灯', verb: '在灯下坐了一会儿', fx: '夜里在附近走的小家伙心情更好' },
+  lamp: { name: '灯', verb: '借着灯光坐了一会儿', fx: '夜里在附近走的小家伙心情更好' },
   garden: { name: '花园', verb: '闻了闻花', fx: '附近的花长得快一半，落成时还开出一圈花' },
   school: { name: '学堂', verb: '听了一段故事', fx: '在这儿听故事的小家伙会成为朋友，全镇交朋友更快' },
   train: { name: '货运', verb: '推着车跑了一圈', fx: '拖大物件走得更快' },

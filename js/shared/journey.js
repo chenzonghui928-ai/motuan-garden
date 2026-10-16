@@ -1,6 +1,7 @@
 // 远行探险：目的地、行囊加成、游记文案。纯数据 + 文案生成，主线程（远行地图）与 Worker（模拟）共用。
 // 远行的结果不是后台跑模拟，而是按时长、行囊和成员性格“生成”出来（DECISIONS 第 2 条）。
 import { SP_NAME } from './layout.js';
+import { COMBOS, ITEMS } from './items.js';
 
 export const TRIP_H = [2, 6];          // 远行时长（真实小时）
 export const TRIP_CD_H = 1;            // 回来后歇多久（真实小时）才能再出发
@@ -104,3 +105,54 @@ export function writeJourney(ctx) {
   return { title: `游记：${D.name}`, paras: P.slice(0, 5) };
 }
 export const SP_N = SP_NAME;
+
+// ---------------------------------------------------------------- 配方（远行带回来的“看见别人这么拼过”）
+// 21 对搭配一直都能拼，配方只决定玩家看不看得到；开局只知道茶壶 + 毛线球。
+export const RECIPE_START = ['cozytea'];
+export const RECIPE_P = 0.45;            // 每次远行带回一张配方的基础概率
+// 每个目的地偏爱的组合（权重 4）；季节组合只在对应季节或下个季节才容易带回（其余季节权重很低）
+export const RECIPE_PREF = {
+  picnic: ['musicbox', 'kiteflag', 'popseesaw', 'umbrellatea', 'pumpkinstore'],
+  sill: ['teabath', 'toastbake', 'honeytea', 'cozytea', 'firefly'],
+  puddle: ['bootpost', 'duckboat', 'tinwell', 'umbrellatea', 'strawhome'],
+  alley: ['thimblegarden', 'glasshouse', 'firefly', 'pumpkinstore'],
+  atticbox: ['library', 'train', 'cozytea', 'bellboot', 'mittenhome', 'firefly'],
+  pond: ['yarncradle', 'duckboat', 'tinwell', 'strawhome', 'teabath'],
+};
+// 信里夹的见闻：在路上看到别的小动物这么拼
+export const RECIPE_SEEN = {
+  cozytea: '一只小刺猬把毛线一圈圈绕在茶壶外面，茶壶穿上了毛衣，壶嘴还冒着热气。',
+  bootpost: '有只小松鼠把雨靴立起来当信箱，门口钉着个大纽扣，一按就“咚”地响。',
+  musicbox: '野餐布上有几只小老鼠把线轴装在饼干盒上，一摇就叮叮当当，大家围着跳舞。',
+  teabath: '茶杯里冒着白白的热气，一只小鸭子泡在里面，旁边的水壶还在咕嘟咕嘟烧水。',
+  firefly: '树枝上用毛线吊着一只玻璃罐，里面亮着几点萤火，路过的小动物都说不怕黑了。',
+  train: '两只小仓鼠把火柴盒挂在玩具车后面，推着一整车的栗子慢悠悠地走过去。',
+  thimblegarden: '花盆边上扣着一只顶针，雨水一滴一滴落进去，刚好浇到每一朵小花。',
+  library: '旧书立起来当墙，铅笔横着当房梁，里面有只小兔子正在给大家念故事。',
+  duckboat: '一只小黄鸭在前面拉，雨靴在后面装满了货，在池塘里划出一道长长的水纹。',
+  toastbake: '吐司机稳稳坐在饼干盒上，拨杆一按，金黄的面包片“嘣”地弹出来，香得大家排起了队。',
+  honeytea: '一只小熊趴在大茶杯边上，往热茶里淋了满满一勺蜂蜜，嘴边全是甜甜的。',
+  yarncradle: '大蛋壳里铺满了软软的毛线，小鸡钻进去就呼呼睡着了，像回到了蛋里。',
+  tinwell: '线轴架在鱼罐头上当辘轳，蓝线放下去，小水桶就咕噜咕噜打上水来。',
+  glasshouse: '玻璃罐倒扣在花盆上，里面暖烘烘的，种子一眨眼就发了芽。',
+  umbrellatea: '我们在小水洼边看见几只青蛙把雨伞撑在茶杯上当茶座，好聪明！',
+  kiteflag: '长铅笔立在草地上当旗杆，风筝飞得高高的，远处的小动物一眼就看见了这里。',
+  strawhome: '草帽扣在小圆屋上当屋顶，屋顶上还立着一枚大贝壳，贴着墙能听见海的声音。',
+  popseesaw: '一把冰棍棍拼成长板，架在立起来的大纽扣上，小家伙们排着队抢着玩跷跷板。',
+  pumpkinstore: '掏空的南瓜里又干燥又凉快，落叶耙靠在门边，栗子和干草都堆在里面。',
+  bellboot: '雨靴立在草地上，顶上挂着一只金铃铛，风一吹就叮叮当当，大家听着钟声起床。',
+  mittenhome: '暖水袋当屋子，毛线手套守在门的两边，外面下大雪，里面一点儿也不冷。',
+};
+const NEXT_SEASON = { spring: 'summer', summer: 'autumn', autumn: 'winter', winter: 'spring' };
+// 这个组合属于哪个季节（两件旧物里有季节限定的就算）；没有则 null
+export const comboSeason = (c) => (ITEMS[c.a] && ITEMS[c.a].season) || (ITEMS[c.b] && ITEMS[c.b].season) || null;
+// 只从还不知道的里面挑。known：{ id: ... }；rnd：0～1 随机；返回组合或 null
+export function recipePick(known, dest, season, rnd) {
+  const pool = COMBOS.filter(c => !known[c.id]); if (!pool.length) return null;
+  const pref = RECIPE_PREF[dest] || [];
+  const w = pool.map(c => { let x = pref.includes(c.id) ? 4 : 1; const cs = comboSeason(c); if (cs) x *= (cs === season || cs === NEXT_SEASON[season]) ? 4 : 0.15; return x; });
+  let r = rnd() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
+// 这次远行带不带回配方：基础 45%，时间长、行囊/队员运气好、没拿到配方的次数多（保底）都会提高
+export function recipeChance(hours, luck, dry) { return Math.min(0.9, RECIPE_P + (hours >= 4 ? 0.1 : 0) + luck * 0.3 + Math.min(0.3, (dry || 0) * 0.1)); }

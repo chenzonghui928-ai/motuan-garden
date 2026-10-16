@@ -248,7 +248,7 @@ const worker = new Worker(new URL('./sim/sim.worker.js', import.meta.url), { typ
 let saved = null; try { saved = Q.has('fresh') ? null : localStorage.getItem(SAVE_KEY); } catch (e) { }
 if (saved) saveBytes = saved.length;
 const send = (m) => worker.postMessage(m);
-const ui = createUI({ send, enter: (id) => enterInterior(id), focus: (x, z) => { exitInterior(true); focusAt(x, z); }, follow: (id) => startFollow(id), startMove: (id) => startMove(id), select: (id) => select(id), onSheet: (open) => { sheetOpen = open; }, startPlace: (k) => startPlace(k), startTend: (m, seed) => startTend(m, seed),
+const ui = createUI({ send, enter: (id) => enterInterior(id), focus: (x, z) => { exitInterior(true); focusAt(x, z); }, follow: (id) => startFollow(id), startMove: (id) => startMove(id), select: (id) => select(id), onSheet: (open) => { sheetOpen = open; }, startPlace: (k) => startPlace(k), dragPlace: (k, e) => startPlaceDrag(k, e), startTend: (m, seed) => startTend(m, seed),
   tripStart: (dest, rid) => { const D = DESTS[dest]; if (!D) return; const g = GATES[D.gate]; if (rid != null) setTimeout(() => { cam.follow = rid; userHold = 0; cam.fly = null; }, 300); else setTimeout(() => focusAt(g[0] * 0.82, g[1] * 0.82, 48), 400); } }); // 小队出发：镜头飞到村口，看着它们走出去
 loadArt().then(() => hydrate(document.body));
 const audio = createAudio(); audio.mount(); // 背景音乐 + 环境音 + 音乐盒
@@ -260,9 +260,9 @@ worker.onmessage = (e) => {
   const m = e.data;
   if (m.type === 'struct') { struct = m.st; _ps = null; nugget.setStruct(struct); if (mode.kind === 'place') refreshGold(); town.setStruct(struct); props.setStruct(struct); weather.setStruct(struct); roads.rebuild(struct.nodes, struct.edges); maskFlora(struct.lots.filter(l => l.stage !== 'far'), struct.nodes, struct.edges); if (moveWait) { const l = struct.lots.find(l => l.id === moveWait.id); if (!l) { moveWait = null; town.hideId = props.hideId = -1; } else if (Math.hypot(l.x - moveWait.x, l.z - moveWait.z) < 0.8) { landMoved(l.id); moveWait = null; town.hideId = props.hideId = -1; } } const ex = town.extent(); if (Math.abs(ex - viewExtent) > 5 && userHold <= 0 && !tank.on && !cam.follow && !interior.busy) { viewExtent = ex; defaultView(); } if (interior.busy && !struct.lots.some(l => l.id === interior.lotId && canEnter(l))) exitInterior(true); }
   else if (m.type === 'snap') onSnap(m);
-  else if (m.type === 'info') { info = m.info; gateNew.clear(); for (const f of info.far) { let b = 0, bd = 1e9; GATES.forEach((g, i) => { const d = Math.hypot(g[0] - f.x, g[1] - f.z); if (d < bd) { bd = d; b = i; } }); gateNew.add(b); } ui.onInfo(info); lenia.onInfo(info); renderFollow(); if (mode.kind === 'plant' || mode.kind === 'water') renderTend(); }
+  else if (m.type === 'info') { info = m.info; gateNew.clear(); for (const f of info.far) { let b = 0, bd = 1e9; GATES.forEach((g, i) => { const d = Math.hypot(g[0] - f.x, g[1] - f.z); if (d < bd) { bd = d; b = i; } }); gateNew.add(b); } ui.onInfo(info); if (!document.getElementById('guide')) lenia.onInfo(info); /* 引导进行时 Lenia 的卡片就是她在说话，不再叠第二个气泡 */ renderFollow(); if (mode.kind === 'plant' || mode.kind === 'water') renderTend(); }
   else if (m.type === 'dreamResult') ui.onDreamResult(m);
-  else if (m.type === 'leniaResult') { if (onAct(m)) return; ui.onLenia(m); if (m.act === 'plant' || m.act === 'water') floatText(m.ok ? (m.act === 'plant' ? '种下了' : m.why) : m.why); }
+  else if (m.type === 'leniaResult') { dispatchEvent(new CustomEvent('lenia-act', { detail: m })); if (onAct(m)) return; ui.onLenia(m); if (m.act === 'plant' || m.act === 'water') floatText(m.ok ? (m.act === 'plant' ? '种下了' : m.why) : m.why); }
   else if (m.type === 'save') { try { localStorage.setItem(SAVE_KEY, m.data); saveBytes = m.data.length; } catch (err) { saveBytes = -1; } }
   else if (m.type === 'advanced') { window.__ng.lastAdvance = m; }
 };
@@ -348,7 +348,7 @@ function updateCharacters(dt, t) {
 // ---------------------------------------------------------------- 点选居民（轻点，不是拖动）
 let down = null;
 canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; if (mode.kind === 'place' || mode.kind === 'move') placeDown(e); });
-canvas.addEventListener('pointermove', (e) => { if ((mode.kind === 'place' || mode.kind === 'move') && (mode.drag || pinch.pts.size > 1)) placeMove(e); else if (mode.kind) mode.hover = groundAt(e.clientX, e.clientY); else if (cam.follow != null && down && (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10 || twist.pts.size > 1)) stopFollow(); });
+canvas.addEventListener('pointermove', (e) => { if ((mode.kind === 'place' || mode.kind === 'move') && (mode.drag || pinch.pts.size > 1)) placeMove(e); else if (mode.kind) mode.hover = groundAt(e.clientX, e.clientY); else if (cam.follow != null && down && e.buttons && (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10 || twist.pts.size > 1)) stopFollow(); });
 canvas.addEventListener('wheel', () => { if (cam.follow != null) stopFollow(); }, { passive: true });
 canvas.addEventListener('pointerup', (e) => {
   if (tank.on) { peekTank(); return; }
@@ -368,6 +368,7 @@ canvas.addEventListener('pointerup', (e) => {
   if (lot.moving) { mode.tap = { x: e.clientX, y: e.clientY }; floatText(`${lot.name}正在搬家，等落好了再进去`); return; }
   if (canEnter(lot)) enterInterior(lot.id); else if (unfinished(lot)) ui.openSite(lot.id); else ui.openThing(lot.id); // 盖好的进屋；没盖好的看施工牌；小设施、摆设、桥开小卡片
 });
+for (const ev of ['pointerup', 'pointercancel']) canvas.addEventListener(ev, () => { down = null; }); // 松手后清掉按下记录（排在上面的 pointerup 之后）：否则鼠标不按键飘过画布，也会被当成拖动把跟随打断
 // 改造中的建筑（施工现场画面用）：位置跟着画面里的房子走
 const _sites = [];
 function siteList() {
@@ -484,13 +485,26 @@ function checkPlace() {
   const r = treeCheck(placeCheck(mode.x, mode.z, itemR(mode.item), placeState(), 'item', { item: mode.item, rot: mode.yaw }), mode.x, mode.z, itemR(mode.item)); mode.ok = r.ok; mode.why = r.why; mode.gold1 = r.gold || null;
   const tip = mode.gold && mode.gold.length && !r.gold ? '（放进金圈会有惊喜）' : '';
   hintEl.textContent = r.gold ? '✨ 放进金圈会有惊喜！' : r.ok ? `放这里吧 · ${r.why}${tip}` : `不合适 · ${r.why}${tip}`; hintEl.className = 'paper ' + (r.ok ? 'good' : 'bad'); document.getElementById('placeOk').disabled = !r.ok; }
+// 新手教程用的小接口（guide.js 只通过它碰场景）：模式、金圈屏幕位置、挪一挪、镜头、“等一等”标记
+const guideEnv = {
+  hold: false, mode, send, endMode: () => endMode(), cheer: () => audio.cheer(),
+  focusWide: (x, z) => { exitInterior(true); const m = innerWidth < 700, d = m ? 58 : 40; const o = camera.position.clone().sub(controls.target), l = Math.hypot(o.x, o.z) || 1, k = m ? 0.2 * d : 0.08 * d; focusAt(x + o.x / l * k, z + o.z / l * k, d); userHold = 90; }, // 镜头往后挪一点，让整栋落在屏幕上半部，不被底部的 Lenia 卡片盖住 // 教程里拼成之后：镜头停在能看清整栋组合和围观小动物的距离
+  lots: () => (struct && struct.lots) || [],
+  boxCount: (k) => (info && info.lenia.box[k]) || 0,
+  startMove: (id) => startMove(id), focus: (x, z) => { exitInterior(true); focusAt(x, z, 22); },
+  goldRings: () => (mode.kind === 'place' ? mode.gold || [] : []),
+  goldHole() { // 第一个金圈在屏幕上的位置（圆心 + 半径），跟着镜头变
+    const g = mode.kind === 'place' && mode.gold && mode.gold[0]; if (!g) return null; const c = screenOf(g.x, 0.3, g.z);
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0); const e = screenOf(g.x + right.x * g.r, 0.3, g.z + right.z * g.r);
+    return { x: c.x, y: c.y, r: Math.max(40, Math.hypot(e.x - c.x, e.y - c.y)) }; },
+};
 // 金圈：手里这件能和地上哪件拼（位置由 shared/items.js 的 goldRings 算，和 Worker 落地拼合用同一个函数）
 const goldsEl = document.getElementById('golds');
 function refreshGold() {
   if (mode.kind !== 'place') { mode.gold = []; golds.set([]); goldsEl.innerHTML = ''; return; }
   mode.gold = goldRings(mode.item, itemR(mode.item), placeState()); golds.set(mode.gold);
-  const cd = (info && info.lenia && info.lenia.cdex) || {};
-  goldsEl.innerHTML = mode.gold.map(g => `<div class="gl" data-g="${g.id}" title="${cd[g.combo] ? (COMBOS.find(c => c.id === g.combo) || {}).name : '还没见过的组合'}">${cd[g.combo] ? icon('item:combo_' + g.combo) : '？'}</div>`).join(''); hydrate(goldsEl);
+  const cd = (info && info.lenia && info.lenia.recipes) || {}; // 按“已知配方”显示：知道配方 = 组合图标，不知道 = ？
+  goldsEl.innerHTML = mode.gold.map(g => `<div class="gl" data-g="${g.id}" title="${cd[g.combo] ? (COMBOS.find(c => c.id === g.combo) || {}).name : '还不知道的搭配'}">${cd[g.combo] ? icon('item:combo_' + g.combo) : '？'}</div>`).join(''); hydrate(goldsEl);
 }
 // 挪一挪 / 搬家：拎起已经放下的东西（同放置模式：绿/红、转一转、放这里）
 function startMove(id) {
@@ -536,13 +550,32 @@ function placeMove(e) {
   if (pinch.pts.size >= 2) { placeZoom(pinch.dist0 * pinch.d0 / pinchD()); return; }
   mode.px = e.clientX; mode.py = e.clientY;
   const g = groundAt(e.clientX + mode.off[0], e.clientY + mode.off[1]); if (!g) return; const R = Math.hypot(g[0], g[1]); const k = R > PLACE_R ? PLACE_R / R : 1; mode.x = g[0] * k; mode.z = g[1] * k; checkPlace(); }
-function placeUp(e) { pinch.pts.delete(e.pointerId); if (pinch.pts.size < 2) pinch.d0 = 0; mode.drag = false; mode.px = null; }
+function placeUp(e) { pinch.pts.delete(e.pointerId); if (pinch.pts.size < 2) pinch.d0 = 0; mode.drag = false; mode.px = null; if (mode.boxDrag && e.pointerId === mode.boxDrag.id) boxDragEnd(e, e.type === 'pointercancel'); }
+// 从储物箱里按住拖出来（ui.js 判定按住/越过箱沿后调进来）：同一次按压直接进放置模式，3D 手、大视野、边缘滚动、金圈、绿红判定全部沿用；
+// 绿色处松手 = 点了「放这里」；红色处（或拖回箱子、取消、Esc）松手 = 旧物回箱。从详情的「放进花园」进来的不带 boxDrag，仍是 放回去/转一转/放这里 三个按钮。
+function startPlaceDrag(k, e) {
+  if (!info || !(info.lenia.box[k] > 0)) return false;
+  startPlace(k); if (mode.kind !== 'place') return false;
+  const touch = e.pointerType !== 'mouse'; mode.boxDrag = { id: e.pointerId, item: k, touch };
+  pinch.pts.clear(); if (e.pointerType === 'touch') pinch.pts.set(e.pointerId, [e.clientX, e.clientY]);
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 有的浏览器不支持就算了 */ }
+  mode.drag = true; mode.off = [0, touch ? -32 : -18]; placeMove(e); return true;
+}
+function boxDragEnd(e, cancelled) {
+  if (!mode.boxDrag) return; mode.boxDrag = null;
+  const pt = e ? { x: e.clientX, y: e.clientY } : { x: mode.px == null ? innerWidth / 2 : mode.px, y: mode.py == null ? innerHeight / 2 : mode.py };
+  const back = !cancelled && ui.boxPointIn(pt.x, pt.y); // 又拖回箱子上松手：算放回去
+  if (!cancelled && !back && mode.ok) { document.getElementById('placeOk').click(); ui.boxDragDone(); return; }
+  const why = cancelled || back ? '' : `放不下：${mode.why}，旧物回箱啦`;
+  endMode(); ui.boxDragBack(pt, why);
+}
 canvas.addEventListener('pointercancel', (e) => { if (mode.kind === 'place' || mode.kind === 'move') placeUp(e); });
 canvas.addEventListener('wheel', (e) => { if (mode.kind !== 'place' && mode.kind !== 'move') return; placeZoom(camera.position.distanceTo(controls.target) * Math.exp(e.deltaY * 0.0012)); }, { passive: true });
 // 边缘滚动：拖着旧物靠近屏幕边缘（12% 以内），地图往那边平移，越靠边越快；旧物一直在指尖下
 const EDGE = 0.12;
 const edgeK = (u) => u < EDGE ? -(EDGE - u) / EDGE : u > 1 - EDGE ? (u - 1 + EDGE) / EDGE : 0;
 function edgeScroll(dt) {
+  if (mode.boxDrag && mode.drag && mode.px != null && cam.fly) { placeMove({ pointerId: -1, clientX: mode.px, clientY: mode.py }); return; } // 从箱里拖出来时镜头还在飞：旧物跟着指尖重新对准地面
   if (!mode.drag || mode.px == null || cam.fly) return;
   const ex = edgeK(mode.px / innerWidth), ey = edgeK(mode.py / innerHeight); if (!ex && !ey) return;
   const off = camera.position.clone().sub(controls.target); const fx = -off.x, fz = -off.z, fl = Math.hypot(fx, fz) || 1; // 屏幕“上”在地上的方向
@@ -555,8 +588,9 @@ function edgeScroll(dt) {
 let moveWait = null; // 搬家/挪动已经发给模拟、等新位置回来：原物继续藏着，回来后在新位置“落下”
 function landMoved(id) { for (const L of [town.lots.get(id), props.lots.get(id)]) if (L) { L.x = L.lx; L.z = L.lz; L.yaw = L.rot; L.fall = 1; } }
 function endMode(keepHand = false, switching = false, drop = null) {
+  if (mode.boxDrag) { const q = { x: mode.px == null ? innerWidth / 2 : mode.px, y: mode.py == null ? innerHeight / 2 : mode.py }; mode.boxDrag = null; ui.boxDragBack(q, ''); } // 从箱里拖出来时被别处强行结束（比如教程接管）：旧物回箱、箱子弹回来
   if (mode.kind === 'move' && !moveWait) { town.hideId = props.hideId = -1; }
-  if ((mode.kind === 'place' || mode.kind === 'move') && !switching) placeCamOut(drop); pinch.pts.clear(); mode.drag = false; mode.px = null;
+  if ((mode.kind === 'place' || mode.kind === 'move') && !switching) placeCamOut(drop); pinch.pts.clear(); mode.drag = false; mode.px = null; mode.boxDrag = null;
   mode.kind = null; controls.enabled = true; userHold = 2; document.body.classList.remove('mode'); placeEl.classList.remove('on'); tendEl.classList.remove('on');
   town.ghost = null; props.setGhost(null); if (!keepHand) handOff(); mode.gold = []; golds.set([]); goldsEl.innerHTML = '';
   document.querySelector('#placeOk + .lbl').textContent = '放这里'; document.querySelector('#placeNo + .lbl').textContent = '放回去';
@@ -570,7 +604,7 @@ document.getElementById('placeOk').onclick = () => {
   if (mode.kind !== 'place') return; checkPlace(); if (!mode.ok) return;
   if (mode.gold1) { mode.x = mode.gold1.x; mode.z = mode.gold1.z; mode.yaw = mode.gold1.rot; } // 放进金圈：对齐圈心
   const d = { x: mode.x, z: mode.z, t: performance.now() }; town.pendingDrop = props.pendingDrop = d;
-  send({ type: 'lenia', act: 'drop', item: mode.item, x: mode.x, z: mode.z, rot: mode.yaw });
+  send({ type: 'lenia', act: 'drop', item: mode.item, x: mode.x, z: mode.z, rot: mode.yaw, hold: guideEnv.hold && mode.item === 'teapot' });
   endMode(true, false, d); handLeave();
 };
 // 打理花园：选花种 → 点空地种下；拿水壶 → 点花浇水
@@ -745,17 +779,16 @@ function setTank(on) {
 let peekTimer = 0; function peekTank() { document.body.classList.add('peek'); clearTimeout(peekTimer); peekTimer = setTimeout(() => document.body.classList.remove('peek'), 3000); }
 document.getElementById('tankBtn').onclick = () => setTank(true);
 document.getElementById('tankExit').onclick = () => setTank(false);
-addEventListener('keydown', (e) => { if (e.key === 'Escape' && interior.busy) exitInterior(); if (e.key === 'Escape' && tank.on) setTank(false); if (e.key === 'f' && !tank.on && document.activeElement === canvas) setTank(true); });
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && mode.boxDrag) boxDragEnd(null, true); if (e.key === 'Escape' && interior.busy) exitInterior(); if (e.key === 'Escape' && tank.on) setTank(false); if (e.key === 'f' && !tank.on && document.activeElement === canvas) setTank(true); });
 
 // ---------------------------------------------------------------- 调试面板（?debug）
 const SPD_KEY = 'lenia-garden-speed', SPD_STEPS = [1, 3, 10]; let spdSel = 1; // spdSel：玩家选的倍速（快照里的 speed 会晚一拍，连点时不能用它）
 const setSpeed = (v, keep = false) => {
   send({ type: 'speed', v }); speed = spdSel = v; document.querySelectorAll('#panel [data-spd]').forEach(b => b.classList.toggle('on', +b.dataset.spd === v));
-  const sb = document.getElementById('spdBtn'); if (sb) { sb.querySelector('b').textContent = v + '×'; sb.classList.toggle('fast', v > 1); sb.title = '小镇时间：' + v + '×（点一下切换 1× → 3× → 10×）'; }
+  document.querySelectorAll('#spdRow [data-spd]').forEach(x => { const on = +x.dataset.spd === v; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
   if (!keep) try { localStorage.setItem(SPD_KEY, String(v)); } catch (e) { }
 };
-const cycleSpeed = () => setSpeed(SPD_STEPS[(SPD_STEPS.indexOf(spdSel) + 1) % SPD_STEPS.length]); // 不在列表里（debug 的 60×）→ 回到 1×
-document.getElementById('spdBtn').onclick = cycleSpeed;
+document.querySelectorAll('#spdRow [data-spd]').forEach(b => b.onclick = () => setSpeed(+b.dataset.spd)); // 三个按钮一排，点哪档就是哪档（debug 的 60× 时三个都不亮）
 document.querySelectorAll('#panel [data-spd]').forEach(b => b.onclick = () => setSpeed(+b.dataset.spd));
 document.getElementById('dbgAdv').onclick = () => send({ type: 'advance', sec: DAY / 2 });
 document.getElementById('dbgAway').onclick = () => send({ type: 'away', ms: 5 * 3600e3 });
@@ -820,7 +853,7 @@ function finishLoading() {
 // 进花园以后：第一次由 Lenia 讲开场并带一遍（合并成一套引导）；以后每次 Lenia 结合真实状态打个招呼。都说完了再给“离开期间的信”
 function afterLoad() {
   lenia.start(); const allow = !Q.has('noguide') && !Q.has('tank') && !DEBUG;
-  if (allow && !guideSeen()) { startGuide(ui, { onDone: () => setTimeout(() => ui.holdGift(false), 450) }); return; }
+  if (allow && !guideSeen()) { startGuide(ui, { env: guideEnv, onDone: () => { lenia.state.base = null; setTimeout(() => ui.holdGift(false), 450); } }); return; }
   if ((allow || Q.has('greet')) && info) { let done = false; const rel = () => { if (!done) { done = true; ui.holdGift(false); } }; lenia.greet(info, rel); setTimeout(rel, 4200); return; }
   ui.holdGift(false);
 }
@@ -845,7 +878,7 @@ window.__ng = {
   userHold: () => userHold,
   stats() { render(); const i = renderer.info; return { charHi: nHi, charLo: nLo, houseHi: town.nHi, houseLo: town.nLo, calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, progs: i.programs.length, frameMs, templateTris: town.templateTris }; },
   setDay(t) { send({ type: 'setTime', dayT: t }); dayT = t; },
-  worksite, siteList, props, mode, startPlace, startTend, endMode, interior, enterInterior, exitInterior, pickLot, dbgInside: (lot, what = 'eat') => send({ type: 'dbgInside', lot, what }), dbgShop: (lot, n = 3) => send({ type: 'dbgShop', lot, n }), dbgStall: (lot) => send({ type: 'dbgStall', lot }), stress: (n) => send({ type: 'stress', n }), startGuide: (force = true) => startGuide(ui, { force }),
+  guideEnv, worksite, siteList, props, mode, startPlace, startTend, endMode, interior, enterInterior, exitInterior, pickLot, dbgInside: (lot, what = 'eat') => send({ type: 'dbgInside', lot, what }), dbgShop: (lot, n = 3) => send({ type: 'dbgShop', lot, n }), dbgStall: (lot) => send({ type: 'dbgStall', lot }), stress: (n) => send({ type: 'stress', n }), startGuide: (force = true) => startGuide(ui, { force }),
   placeAt(x, z, yaw = 0) { mode.x = x; mode.z = z; mode.yaw = yaw; checkPlace(); return { ok: mode.ok, why: mode.why }; },
   confirmPlace() { document.getElementById('placeOk').click(); },
   lenia(m) { send({ type: 'lenia', ...m }); },

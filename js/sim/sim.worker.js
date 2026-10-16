@@ -43,7 +43,9 @@ onmessage = (e) => {
     case 'stress': sim.stress(m.n || 40); postStruct(); postInfo(true); tick(); break;
     case 'lenia': { // 玩家（Lenia 的好朋友）的动作：放东西 / 种花 / 浇水 / 收回礼 / 解锁旧物 / 买花种
       let r;
-      if (m.act === 'drop') r = sim.dropItem(m.item, m.x, m.z, m.rot || 0);
+      if (m.act === 'drop') r = sim.dropItem(m.item, m.x, m.z, m.rot || 0, !!m.hold);
+      else if (m.act === 'holdOff') r = sim.releaseHold();
+      else if (m.act === 'celebrate') r = sim.celebrate(m.id);
       else if (m.act === 'plant') r = sim.addFlower(m.x, m.z, m.seed);
       else if (m.act === 'water') r = sim.waterAt(m.x, m.z, m.r || 4);
       else if (m.act === 'gift') r = sim.takeGift(m.id);

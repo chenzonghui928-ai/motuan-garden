@@ -15,7 +15,7 @@ import { installSeasons } from './seasons.js';
 export const ACT = { IDLE: 0, WALK: 1, GATHER: 2, FISH: 3, FARM: 4, EAT: 5, SLEEP: 6, CHAT: 7, BUILD: 8, INSIDE: 9, HAUL: 10, CHOP: 11 };
 export const FLAG = { CARRY: 1, HIDDEN: 2, HAPPY: 4, PULL: 8, EMOTE: 64 };
 export const SNAP_STRIDE = 7; // id, sp, x, z, yaw, act, flags
-export const SAVE_VERSION = 7; // 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上）
+export const SAVE_VERSION = 8; // 8：配方（远行带回的搭配配方，旧档由已拼出过的组合 + 茶壶毛线球补齐）； 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上）
 const FRIEND = 30, FRIEND_MEETS = 5, DREAM_COST = 3, MAX_WISHES = 8, MAX_CARDS = 40, MAX_ALBUM = 240;
 const LOW_JOBS = new Set(['wander', 'plaza', 'visit', 'wait', 'arrive']);
 
@@ -25,7 +25,7 @@ export class Sim {
     if (opts.kinds) for (const k in opts.kinds) if (this.K[k]) this.K[k] = opts.kinds[k];
     this.log = []; this.gateLog = []; // gateLog：每个村口发生过的真事（远行出发/回来、拖回的旧物、门外新出现的东西），最多留 40 条
     if (opts.save) {
-      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
+      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, 7, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
       catch (e) { this.log.push('存档读取失败，重新开局'); this.loadError = String(e && e.message || e); }
     }
     this.fresh(opts.seed ?? 1015);
@@ -376,6 +376,7 @@ export class Sim {
     if (p.stage === 'haul') return (p.cum[p.cum.length - 1] - p.s) / 0.7 * 1.3;
     return -1;
   }
+  lotFast(id) { const l = this.lotById(id); return !!(l && l.fast && Date.now() < l.fast); } // 新手教程那次组合的施工加速标记（临时字段）
   siteMissing(lot) { return lot.paid < 3 && lot.prog >= lot.paid / 3 - 1e-6 ? this.stageMissing(lot) : []; }
   sitePile(lot) {
     const out = []; if (lot.paid >= 3 && lot.prog >= 1 - 1e-6) return out;
@@ -484,7 +485,7 @@ export class Sim {
     if (lot.paid >= 3 && lot.prog >= 1 - 1e-6) { r.timer = 1; return; }
     if (lot.prog >= lot.paid / 3 - 1e-6) { if (this.stageMissing(lot).length) return this.fetchMat(r, p); this.payStage(lot, r); }
     const a = this.rnd(0, TAU), rr = lot.r * 0.85 + 0.8;
-    this.setSteps(r, [this.go(lot.x + Math.cos(a) * rr, lot.z + Math.sin(a) * rr), this.doo(ACT.BUILD, 12, 'work', { face: [lot.x, lot.z], lot: lot.id })], 'build', `在给${lot.name}${STAGE_NAME[Math.max(0, lot.paid - 1)]}`);
+    this.setSteps(r, [this.go(lot.x + Math.cos(a) * rr, lot.z + Math.sin(a) * rr), this.doo(ACT.BUILD, lot.fast && Date.now() < lot.fast ? 2 : 12, 'work', { face: [lot.x, lot.z], lot: lot.id })], 'build', `在给${lot.name}${STAGE_NAME[Math.max(0, lot.paid - 1)]}`);
     p.workers++; r.buildP = p.id;
   }
   fetchMat(r, p) {
@@ -537,7 +538,7 @@ export class Sim {
       case 'deliver': this.store += r.carry; r.carry = 0; r.mood = Math.min(100, r.mood + 2); break;
       case 'work': {
         const p = this.projects.find(p => p.id === r.buildP); const lot = this.lotById(st.lot);
-        if (p && lot && p.stage === 'renovate') { lot.prog = Math.min(lot.paid / 3, lot.prog + 12 / (80 + TEAM[p.kind] * 22)); r.built++; r.builtOn = lot.id; this.wishHit(r, 'build'); r.mood = Math.min(100, r.mood + 1); }
+        if (p && lot && p.stage === 'renovate') { lot.prog = Math.min(lot.paid / 3, lot.prog + 12 / (80 + TEAM[p.kind] * 22) * (lot.fast && Date.now() < lot.fast ? 14 : 1)); r.built++; r.builtOn = lot.id; this.wishHit(r, 'build'); r.mood = Math.min(100, r.mood + 1); }
         this.releaseBuild(r); break;
       }
       case 'getMat': {
@@ -610,7 +611,7 @@ export class Sim {
     if (!st) { r.timer -= dt; if (r.timer <= 0) this.decide(r); return; }
     if (st.k === 'go') {
       const w = r.way && r.way[r.wi]; if (!w) { this.interrupt(r, '找不到路，换个办法'); return; }
-      const dx = w[0] - r.x, dz = w[1] - r.z; const d = Math.hypot(dx, dz); const v = r.spd * dt * (r.box ? 0.85 : 1);
+      const dx = w[0] - r.x, dz = w[1] - r.z; const d = Math.hypot(dx, dz); const v = r.spd * dt * (r.box ? 0.85 : 1) * (r.job === 'build' && r.buildP != null && this.lotFast(r.buildP) ? 7 : 1); // 教程加速的工地：小动物小跑着赶去
       if (d <= v) { r.x = w[0]; r.z = w[1]; r.mv += d; if (++r.wi >= r.way.length) { r.si++; this.beginStep(r); } }
       else { r.x += dx / d * v; r.z += dz / d * v; r.yaw = Math.atan2(dx, dz); r.mv += v; }
       r.mvT += dt; if (r.mvT > 6) { if (r.mv < 0.3) { this.stats.stuck++; this.interrupt(r, '被挡住了，换条路走'); return; } r.mvT = 0; r.mv = 0; }
@@ -951,14 +952,14 @@ export class Sim {
   // ---------------------------------------------------------------- 设施：居民去用一下（每种都有实实在在的作用，见 FAC.fx）
   facFun(r, l) {
     let mood = 7, verb = FAC[l.fac].verb; const pals = this.res.filter(o => o !== r && !o.away && o.steps[o.si] && o.steps[o.si].fn === 'facFun' && o.steps[o.si].lot === l.id);
-    if (l.fac === 'table') { if (r.full < 80 && this.store >= 1) { this.store -= 0.6; r.full = Math.min(100, r.full + 14); verb = pals.length ? '和大家围着野餐桌吃了点东西' : '在野餐桌上吃了点东西'; } mood += pals.length ? 4 : 1; for (const o of pals) this.bond(r, o, 2); }
+    if (l.fac === 'table') { if (r.full < 80 && this.store >= 1) { this.store -= 0.6; r.full = Math.min(100, r.full + 14); verb = pals.length ? '和大家围着吃了点东西' : '吃了点东西'; } mood += pals.length ? 4 : 1; for (const o of pals) this.bond(r, o, 2); }
     else if (l.fac === 'play') { if (r.sp === 'dog' || this.has(r, 'curious')) mood += 4; for (const o of pals) this.bond(r, o, 1); }
-    else if (l.fac === 'stage') { const ev = this.dayT() > 0.68; mood += ev ? 5 : 1; if (ev) verb = '傍晚在台上跳了一支舞'; for (const o of pals) this.bond(r, o, 1); }
+    else if (l.fac === 'stage') { const ev = this.dayT() > 0.68; mood += ev ? 5 : 1; if (ev) verb = '傍晚跳了一支舞'; for (const o of pals) this.bond(r, o, 1); }
     else if (l.fac === 'pond' && (r.sp === 'duck' || r.sp === 'chick')) mood += 5;
     else if (l.fac === 'school') { mood += 2; for (const o of pals) this.bond(r, o, 3); }
     else if (l.fac === 'well') { r.full = Math.min(100, r.full + 3); if (this.flowers.length && this.waterAt(l.x, l.z, 7).ok) verb = '打了一桶水，顺手浇了浇附近的花'; }
     else if (l.fac === 'garden') { if (this.flowers.length && this.waterAt(l.x, l.z, 6).ok) verb = '闻了闻花，还给它们浇了点水'; }
-    else if (l.fac === 'lamp') { if (isNight(this.dayT())) { mood += 4; verb = '在亮着的灯下坐了一会儿'; } }
+    else if (l.fac === 'lamp') { if (isNight(this.dayT())) { mood += 4; verb = '借着亮亮的灯光坐了一会儿'; } }
     else if (l.fac === 'boat') { mood += 3; }
     else if (l.fac === 'post' && this.rng() < 0.4) { const g = this.addGift(r, 'note', { kind: 'daily' }); if (g) verb = '寄了一张小纸条，纸条落在了你的窗台上'; }
     r.mood = Math.min(100, r.mood + mood); this.remember(r, `在${l.name}${verb}`); this.emo(r, 3, 3, { k: 'fac', a: l.name, b: verb });
