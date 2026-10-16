@@ -16,7 +16,7 @@ import { installSeasons } from './seasons.js';
 export const ACT = { IDLE: 0, WALK: 1, GATHER: 2, FISH: 3, FARM: 4, EAT: 5, SLEEP: 6, CHAT: 7, BUILD: 8, INSIDE: 9, HAUL: 10, CHOP: 11 };
 export const FLAG = { CARRY: 1, HIDDEN: 2, HAPPY: 4, PULL: 8, EMOTE: 64 };
 export const SNAP_STRIDE = 7; // id, sp, x, z, yaw, act, flags
-export const SAVE_VERSION = 9; // 9：粮筐按品种分开存（旧档的总数按 3:4:3 拆成莓果/菜/鱼，面包从零开始），店里有自己的面包库存； 8：配方（远行带回的搭配配方，旧档由已拼出过的组合 + 茶壶毛线球补齐）； 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上）
+export const SAVE_VERSION = 10; // 10：统一尺寸（旧物 / 组合 / 雨靴屋等占地半径变了，读档时按新半径重算门口并把互相插进去的东西挪开，保留已有进度）； 9：粮筐按品种分开存（旧档的总数按 3:4:3 拆成莓果/菜/鱼，面包从零开始），店里有自己的面包库存； 8：配方（远行带回的搭配配方，旧档由已拼出过的组合 + 茶壶毛线球补齐）； 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上）
 const HUNGRY_AT = 32; // 饱腹低于这个数就会头顶冒“饿了”
 const STORE_FULL = 20; // 粮筐里每种食物堆到这么多就不再专门去采
 const BAKE_T = 45; // 一炉面包要烤多久（模拟秒）
@@ -29,7 +29,7 @@ export class Sim {
     if (opts.kinds) for (const k in opts.kinds) if (this.K[k]) this.K[k] = opts.kinds[k];
     this.log = []; this.gateLog = []; // gateLog：每个村口发生过的真事（远行出发/回来、拖回的旧物、门外新出现的东西），最多留 40 条
     if (opts.save) {
-      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, 7, 8, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
+      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, 7, 8, 9, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
       catch (e) { this.log.push('存档读取失败，重新开局'); this.loadError = String(e && e.message || e); }
     }
     this.fresh(opts.seed ?? 1015);

@@ -2,6 +2,7 @@
 // 载入时会把新物件的尺寸 / 拖运人数 / 床位 / 名字补进 layout.js 的共享表（TEAM、CAP、KIND_DEFAULT、OBJ_NAME、SHOP），sim-core 原有流程直接可用。
 import { TEAM, CAP, KIND_DEFAULT, OBJ_NAME, SHOP, STREAM, streamDist, segDist, WORLD_R, PLAZA_R, EDGE_R } from './layout.js';
 import { footOf, circleFoot, prepFit, fitCheck, bodyGap, COMBO_GAP } from './footprint.js';
+import { propR, propH, comboR, comboH } from './scale.js';
 
 // 房子造型（程序化模板）对应的旧物；其余旧物由 render/props.js 画
 export const TEMPLATE_OF = { teapot: 'tea', boot: 'rboot', fishtin: 'fish', teacup: 'cup', honeyjar: 'honey', eggshell: 'egg' };
@@ -35,13 +36,13 @@ export const ITEMS = {
   flowerpot: { mat: 'ceramic', name: '花盆', size: 'small', cost: 2, desc: '陶土的，边上有一圈白霜和青苔。', uses: [{ u: 'fac', fac: 'garden', name: '花盆花坛' }, { u: 'deco', name: '花盆小景' }, { u: 'mat', mat: 'stone', n: 3, name: '一堆碎陶片' }] },
   toaster: { mat: 'metal', name: '吐司机', size: 'big', cost: 5, desc: '奶油色的，侧面画着番茄藤，拨杆还能按下去。', uses: [{ u: 'shop', shop: 'bakery', name: '吐司机面包房' }, { u: 'fac', fac: 'shed', name: '吐司机储物间' }, { u: 'deco', name: '吐司机小景' }] },
   // ---- 季节限定（season：只在这个季节进阁楼/储物箱）
-  umbrella: { mat: 'plastic', season: 'spring', name: '旧雨伞', size: 'mid', cost: 3, desc: '红白格子的伞面，伞骨断了一根，撑开还是圆圆的。', uses: [{ u: 'fac', fac: 'table', name: '雨伞凉亭', plaza: true }, { u: 'shop', shop: 'tea', name: '雨伞茶亭' }, { u: 'deco', name: '雨伞蘑菇' }] },
-  kite: { mat: 'paper', season: 'spring', name: '风筝', size: 'mid', cost: 3, desc: '燕子形状的纸风筝，尾巴上系着三个蝴蝶结。', uses: [{ u: 'fac', fac: 'flag', name: '风筝瞭望台', plaza: true }, { u: 'fac', fac: 'play', name: '风筝滑翔坡' }, { u: 'mat', mat: 'thread', n: 3, name: '一卷风筝线' }] },
+  umbrella: { mat: 'plastic', season: 'spring', name: '鸡尾酒小纸伞', size: 'mid', cost: 3, desc: '红白条的小纸伞，本来插在冰饮杯子里，撑开还是圆圆的，细细的竹签当伞柄。', uses: [{ u: 'fac', fac: 'table', name: '小纸伞凉亭', plaza: true }, { u: 'shop', shop: 'tea', name: '小纸伞茶亭' }, { u: 'deco', name: '小纸伞蘑菇' }] },
+  kite: { mat: 'paper', season: 'spring', name: '小纸风筝', size: 'mid', cost: 3, desc: '燕子形状的小纸风筝，翅膀上一个红圆点，尾巴上系着三个小蝴蝶结。', uses: [{ u: 'fac', fac: 'flag', name: '风筝瞭望台', plaza: true }, { u: 'fac', fac: 'play', name: '风筝滑翔坡' }, { u: 'mat', mat: 'thread', n: 3, name: '一卷风筝线' }] },
   trowel: { mat: 'metal', season: 'spring', name: '小花铲', size: 'small', cost: 2, desc: '绿柄的小铁铲，铲尖还粘着一点去年的泥。', uses: [{ u: 'fac', fac: 'garden', name: '花铲苗圃' }, { u: 'fac', fac: 'well', name: '花铲小水渠' }, { u: 'mat', mat: 'nail', n: 2, name: '两颗铁铆钉' }] },
   strawhat: { mat: 'straw', season: 'summer', name: '草帽', size: 'mid', cost: 3, desc: '宽檐草帽，系着一条红丝带，晒得暖烘烘的。', uses: [{ u: 'home', sp: null, name: '草帽小屋' }, { u: 'fac', fac: 'table', name: '草帽凉棚', plaza: true }, { u: 'shop', shop: 'tea', name: '草帽冷饮铺' }] },
   popsicle: { mat: 'wood', season: 'summer', name: '冰棍棍', size: 'small', cost: 2, desc: '一小把吃完的冰棍棍，闻起来还有一点点橘子味。', uses: [{ u: 'fac', fac: 'flag', name: '冰棍棍路牌' }, { u: 'fac', fac: 'table', name: '冰棍棍小板凳' }, { u: 'mat', mat: 'twig', n: 4, name: '一把小木条' }] },
   shell: { mat: 'shell', season: 'summer', name: '贝壳', size: 'small', cost: 3, desc: '海边捡来的扇贝壳，里面是淡淡的粉色。', uses: [{ u: 'shop', shop: 'bath', name: '贝壳澡堂', water: true }, { u: 'fac', fac: 'bell', name: '贝壳风铃', plaza: true }, { u: 'deco', name: '贝壳小景' }] },
-  rake: { mat: 'wood', season: 'autumn', name: '落叶耙', size: 'mid', cost: 3, desc: '竹子做的落叶耙，扇形的耙齿缺了两根。', uses: [{ u: 'fac', fac: 'shed', name: '落叶耙储物架' }, { u: 'fac', fac: 'play', name: '落叶耙秋千' }, { u: 'mat', mat: 'twig', n: 5, name: '一捆长竹条' }] },
+  rake: { mat: 'wood', season: 'autumn', name: '玩具小耙子', size: 'mid', cost: 3, desc: '给小朋友玩沙子的小耙子，绿漆木柄掉了几块漆，竹子做的耙齿弯弯的。', uses: [{ u: 'fac', fac: 'shed', name: '小耙子储物架' }, { u: 'fac', fac: 'play', name: '小耙子秋千' }, { u: 'mat', mat: 'twig', n: 5, name: '一捆小竹条' }] },
   pumpkin: { mat: 'veg', season: 'autumn', name: '南瓜', size: 'big', cost: 4, desc: '圆滚滚的大南瓜，顶上的藤还弯着一个卷儿。', uses: [{ u: 'home', sp: null, name: '南瓜屋' }, { u: 'shop', shop: 'food', name: '南瓜点心铺' }, { u: 'fac', fac: 'lamp', name: '南瓜灯', plaza: true }] },
   chestnut: { mat: 'veg', season: 'autumn', name: '栗子壳', size: 'small', cost: 2, desc: '毛刺刺的栗子壳，裂开的口子里还躺着三颗栗子。', uses: [{ u: 'fac', fac: 'table', name: '栗子壳小茶几' }, { u: 'deco', name: '栗子壳刺猬' }, { u: 'mat', mat: 'stone', n: 3, name: '一把栗子' }] },
   mittens: { mat: 'cloth', season: 'winter', name: '毛线手套', size: 'mid', cost: 3, desc: '红色的毛线手套，手背上织着白雪花，拇指那里有个小洞。', uses: [{ u: 'home', sp: null, name: '手套暖窝' }, { u: 'fac', fac: 'play', name: '手套滑梯' }, { u: 'deco', name: '手套小景' }] },
@@ -56,10 +57,10 @@ export const WORN = {
   pencil: { name: '泡软的铅笔', uses: [{ u: 'deco', name: '铅笔篱笆' }, { u: 'mat', mat: 'twig', n: 3, name: '几根旧木条' }] },
   matchbox: { name: '泡烂的火柴盒', uses: [{ u: 'deco', name: '纸盒花槽' }, { u: 'mat', mat: 'nail', n: 1, name: '一根小钉子' }] },
   oldbook: { name: '泡皱的旧书', uses: [{ u: 'deco', name: '旧书铺路石' }] },
-  kite: { name: '泡破的风筝', uses: [{ u: 'deco', name: '破风筝稻草人' }, { u: 'mat', mat: 'twig', n: 2, name: '几根风筝骨' }] },
+  kite: { name: '泡破的小风筝', uses: [{ u: 'deco', name: '破风筝稻草人' }, { u: 'mat', mat: 'twig', n: 2, name: '几根风筝骨' }] },
   strawhat: { name: '淋塌的草帽', uses: [{ u: 'deco', name: '草帽鸟窝' }, { u: 'mat', mat: 'grass', n: 4, name: '一捆旧草' }] },
   popsicle: { name: '发霉的冰棍棍', uses: [{ u: 'mat', mat: 'twig', n: 3, name: '几根旧木条' }] },
-  rake: { name: '泡旧的落叶耙', uses: [{ u: 'deco', name: '旧耙子篱笆' }, { u: 'mat', mat: 'twig', n: 4, name: '几根旧竹条' }] },
+  rake: { name: '泡旧的小耙子', uses: [{ u: 'deco', name: '旧耙子篱笆' }, { u: 'mat', mat: 'twig', n: 4, name: '几根旧竹条' }] },
   mittens: { name: '湿透的手套', uses: [{ u: 'deco', name: '手套晾衣绳' }, { u: 'mat', mat: 'thread', n: 3, name: '一把毛线头' }] },
   beanie: { name: '湿透的毛线帽', uses: [{ u: 'deco', name: '湿毛线帽小窝' }, { u: 'mat', mat: 'thread', n: 4, name: '一团旧毛线' }] },
 };
@@ -67,39 +68,39 @@ export const ITEM_KEYS = Object.keys(ITEMS);
 export const START_BOX = { teapot: 1, boot: 1, cookietin: 1, yarn: 2 };
 export const START_UNLOCK = ['teapot', 'boot', 'cookietin', 'yarn'];
 // 新物件的占地 / 门 / 高（render 用 props 画；门在本地 +z 方向）
-const SZ = { big: [3.6, 6], mid: [2.4, 3], small: [1.5, 2] };
+// r（占地半径 = 模型缩放）和 h 不再手写大中小三档，从 shared/scale.js 登记的真实厘米尺寸推出；size 只管拖运要几个人
 export const ITEM_K = {}; export const ITEM_TEAM = {};
 for (const k of ITEM_KEYS) {
-  const it = ITEMS[k]; const [r, h] = SZ[it.size];
+  const it = ITEMS[k];
   ITEM_TEAM[k] = it.size === 'big' ? (TEAM[TEMPLATE_OF[k]] || 4) : it.size === 'mid' ? 2 : 1;
-  if (!TEMPLATE_OF[k]) { ITEM_K[k] = { r, door: [0, r + 0.2], h }; }
+  if (!TEMPLATE_OF[k]) { const r = propR(k); ITEM_K[k] = { r, door: [0, r + 0.2], h: propH(k) }; }
 }
 // 组合惊喜：两件旧物放得很近（6 格以内）就有可能合成特别的东西
 export const COMBOS = [
-  { id: 'cozytea', sign: '毛线茶馆', a: 'teapot', b: 'yarn', base: 'tea', name: '毛线茶壶暖房', u: 'shop', shop: 'tea', r: 4.6, h: 5.5, story: '它们把毛线一圈圈织在茶壶外面，给茶壶穿了件毛衣。冬天坐在里面喝茶，连壶嘴都是暖的。' },
-  { id: 'bootpost', sign: '靴子邮局', a: 'boot', b: 'button', base: 'rboot', name: '纽扣靴子邮局', u: 'fac', fac: 'post', r: 4.0, h: 6, story: '靴子立起来当邮局，纽扣钉在门口当门铃，一按就“咚”一声。从此大家给大好人写纸条更勤了。' },
-  { id: 'musicbox', sign: '音乐台', a: 'cookietin', b: 'spool', name: '饼干盒音乐台', u: 'fac', fac: 'stage', r: 3.8, h: 5, story: '线轴装在饼干盒上当摇把，一摇，盒子里就叮叮当当地响。傍晚大家都围过来跳舞。' },
-  { id: 'teabath', sign: '茶杯温泉', a: 'teacup', b: 'kettle', base: 'cup', name: '茶杯温泉', u: 'shop', shop: 'bath', r: 4.4, h: 5, story: '水壶烧水，茶杯当浴池，热气一冒，整个小镇都闻到了茶香。' },
-  { id: 'firefly', sign: '萤火灯', a: 'glassjar', b: 'yarn', name: '萤火虫吊灯', u: 'fac', fac: 'lamp', r: 2.8, h: 5, story: '用毛线把玻璃罐吊在树枝上，里面住进了几只萤火虫。夜里走夜路的小动物再也不怕黑了。' },
-  { id: 'train', sign: '小火车', a: 'toycar', b: 'matchbox', name: '火柴盒小火车', u: 'fac', fac: 'train', r: 3.2, h: 3, story: '火柴盒挂在玩具车后面当车厢，大家推着它运东西，拖大物件快多了。' },
-  { id: 'thimblegarden', sign: '顶针花园', a: 'flowerpot', b: 'thimble', name: '顶针花园', u: 'fac', fac: 'garden', r: 2.6, h: 2.5, story: '顶针扣在花盆边上当小水桶，接住的雨水刚好够浇一圈花。' },
-  { id: 'library', sign: '图书馆', a: 'oldbook', b: 'pencil', name: '小小图书馆', u: 'fac', fac: 'school', r: 3.2, h: 4, story: '旧书立起来当墙，铅笔横过去当房梁。现在每天下午都有人在里面念故事。' },
-  { id: 'duckboat', sign: '鸭子拖船', a: 'rubberduck', b: 'boot', name: '小黄鸭拖船', u: 'fac', fac: 'dock', r: 3.6, h: 4, story: '小黄鸭在前面拉，雨靴在后面装货，小镇有了第一条船。' },
+  { id: 'cozytea', sign: '毛线茶馆', a: 'teapot', b: 'yarn', base: 'tea', name: '毛线茶壶暖房', u: 'shop', shop: 'tea', story: '它们把毛线一圈圈织在茶壶外面，给茶壶穿了件毛衣。冬天坐在里面喝茶，连壶嘴都是暖的。' },
+  { id: 'bootpost', sign: '靴子邮局', a: 'boot', b: 'button', base: 'rboot', name: '纽扣靴子邮局', u: 'fac', fac: 'post', story: '靴子立起来当邮局，纽扣钉在门口当门铃，一按就“咚”一声。从此大家给大好人写纸条更勤了。' },
+  { id: 'musicbox', sign: '音乐台', a: 'cookietin', b: 'spool', name: '饼干盒音乐台', u: 'fac', fac: 'stage', story: '线轴装在饼干盒上当摇把，一摇，盒子里就叮叮当当地响。傍晚大家都围过来跳舞。' },
+  { id: 'teabath', sign: '茶杯温泉', a: 'teacup', b: 'kettle', base: 'cup', name: '茶杯温泉', u: 'shop', shop: 'bath', story: '水壶烧水，茶杯当浴池，热气一冒，整个小镇都闻到了茶香。' },
+  { id: 'firefly', sign: '萤火灯', a: 'glassjar', b: 'yarn', name: '萤火虫吊灯', u: 'fac', fac: 'lamp', story: '用毛线把玻璃罐吊在树枝上，里面住进了几只萤火虫。夜里走夜路的小动物再也不怕黑了。' },
+  { id: 'train', sign: '小火车', a: 'toycar', b: 'matchbox', name: '火柴盒小火车', u: 'fac', fac: 'train', story: '火柴盒挂在玩具车后面当车厢，大家推着它运东西，拖大物件快多了。' },
+  { id: 'thimblegarden', sign: '顶针花园', a: 'flowerpot', b: 'thimble', name: '顶针花园', u: 'fac', fac: 'garden', story: '顶针扣在花盆边上当小水桶，接住的雨水刚好够浇一圈花。' },
+  { id: 'library', sign: '图书馆', a: 'oldbook', b: 'pencil', name: '小小图书馆', u: 'fac', fac: 'school', story: '旧书立起来当墙，铅笔横过去当房梁。现在每天下午都有人在里面念故事。' },
+  { id: 'duckboat', sign: '鸭子拖船', a: 'rubberduck', b: 'boot', name: '小黄鸭拖船', u: 'fac', fac: 'dock', story: '小黄鸭在前面拉，雨靴在后面装货，小镇有了第一条船。' },
   // ---- 第二批 12 对（模型见 render/props.js 的 COMBO_MODEL）
-  { id: 'toastbake', sign: '吐司烘焙坊', a: 'toaster', b: 'cookietin', name: '吐司饼干烘焙坊', u: 'shop', shop: 'bakery', r: 3.8, h: 6.4, story: '吐司机稳稳地坐在饼干盒上，拨杆一按，金黄的吐司片就“嘣”地弹出来。整个小镇都被烤面包的香味叫醒了，大家排着队来买。' },
-  { id: 'honeytea', sign: '蜂蜜茶摊', a: 'honeyjar', b: 'teacup', base: 'cup', name: '蜂蜜茶摊', u: 'shop', shop: 'tea', r: 4.4, h: 5, story: '大茶杯里倒满热茶，再淋上一大勺蜂蜜罐里的蜂蜜。小熊趴在摊子上，一口气喝了三杯，嘴边全是甜甜的蜂蜜。' },
-  { id: 'yarncradle', sign: '蛋壳摇篮', a: 'eggshell', b: 'yarn', base: 'egg', name: '毛线蛋壳摇篮', u: 'home', sp: 'chick', r: 4.2, h: 5, story: '大蛋壳里铺满软软的毛线，边上还系了一圈红毛线领子，像一只暖暖的小摇篮。小鸡们说，钻进去就像回到了蛋里，睡得特别香。' },
-  { id: 'tinwell', sign: '罐头辘轳井', a: 'fishtin', b: 'spool', name: '罐头辘轳井', u: 'fac', fac: 'well', r: 2.6, h: 5, story: '线轴当辘轳架在鱼罐头上，摇一摇，蓝线放下去，小水桶就咕噜咕噜打上水来。罐头里的水清清凉凉，附近的花喝得饱饱的，长得更快了。' },
-  { id: 'glasshouse', sign: '玻璃温室', a: 'glassjar', b: 'flowerpot', name: '玻璃罐温室', u: 'fac', fac: 'garden', r: 2.8, h: 3.6, story: '玻璃罐倒扣在花盆上，里面暖烘烘、湿漉漉的。种子还没来得及伸懒腰就发了芽，附近的花也跟着长得更快。' },
-  { id: 'umbrellatea', sign: '雨伞茶座', a: 'umbrella', b: 'teacup', name: '雨伞茶座', u: 'fac', fac: 'table', r: 3.2, h: 6, story: '撑开的格子伞当遮阳棚，大茶杯当圆桌。春雨淅淅沥沥，饿了的小家伙都挤到伞底下，围着圆桌吃点心、聊闲天。' },
-  { id: 'kiteflag', sign: '风筝旗杆', a: 'kite', b: 'pencil', name: '风筝旗杆', u: 'fac', fac: 'flag', r: 2.6, h: 5.3, story: '长铅笔立在草地上当旗杆，风筝系在线上飞得高高的。风一吹，远处的小动物一眼就看见了小镇，新邻居来得也更快了。' },
-  { id: 'strawhome', sign: '草帽贝壳屋', a: 'strawhat', b: 'shell', name: '草帽贝壳小屋', u: 'home', r: 2.6, h: 4.6, story: '草帽扣在小圆屋上当屋顶，屋顶上再立一枚大贝壳。夏天屋里凉飕飕的，贴着墙还能听见海的声音。' },
-  { id: 'popseesaw', sign: '冰棍跷跷板', a: 'popsicle', b: 'button', name: '冰棍跷跷板', u: 'fac', fac: 'play', r: 2.4, h: 3.2, story: '一把冰棍棍拼成长长的木板，架在立起来的大纽扣上。这头翘起来，那头“咚”地落下，小家伙们排着队抢着玩，玩着玩着就更要好了。' },
-  { id: 'pumpkinstore', sign: '南瓜储藏室', a: 'pumpkin', b: 'rake', name: '南瓜储藏室', u: 'fac', fac: 'shed', r: 3.2, h: 5, story: '南瓜掏空了，里面又干燥又凉快。落叶耙靠在门边，扫来的栗子、干草和小材料都堆进去，能多放不少。' },
-  { id: 'bellboot', sign: '铃铛钟楼', a: 'jinglebell', b: 'boot', name: '铃铛靴子钟楼', u: 'fac', fac: 'bell', r: 2.4, h: 8, story: '雨靴立在草地上，顶上搭了个小亭子，挂起一只金铃铛。风一吹就叮叮当当，大家听着钟声起床，整个冬天都有了盼头。' },
-  { id: 'mittenhome', sign: '手套暖暖屋', a: 'mittens', b: 'hotbottle', name: '手套暖暖屋', u: 'home', r: 3.0, h: 5.2, story: '暖水袋当屋子，毛线手套守在门口两边。一进门就暖烘烘的，外面雪下得再大，里面也一点儿都不冷。' },
+  { id: 'toastbake', sign: '吐司烘焙坊', a: 'toaster', b: 'cookietin', name: '吐司饼干烘焙坊', u: 'shop', shop: 'bakery', story: '吐司机稳稳地坐在饼干盒上，拨杆一按，金黄的吐司片就“嘣”地弹出来。整个小镇都被烤面包的香味叫醒了，大家排着队来买。' },
+  { id: 'honeytea', sign: '蜂蜜茶摊', a: 'honeyjar', b: 'teacup', base: 'cup', name: '蜂蜜茶摊', u: 'shop', shop: 'tea', story: '大茶杯里倒满热茶，再淋上一大勺蜂蜜罐里的蜂蜜。小熊趴在摊子上，一口气喝了三杯，嘴边全是甜甜的蜂蜜。' },
+  { id: 'yarncradle', sign: '蛋壳摇篮', a: 'eggshell', b: 'yarn', base: 'egg', name: '毛线蛋壳摇篮', u: 'home', sp: 'chick', story: '大蛋壳里铺满软软的毛线，边上还系了一圈红毛线领子，像一只暖暖的小摇篮。小鸡们说，钻进去就像回到了蛋里，睡得特别香。' },
+  { id: 'tinwell', sign: '罐头辘轳井', a: 'fishtin', b: 'spool', name: '罐头辘轳井', u: 'fac', fac: 'well', story: '线轴当辘轳架在鱼罐头上，摇一摇，蓝线放下去，小水桶就咕噜咕噜打上水来。罐头里的水清清凉凉，附近的花喝得饱饱的，长得更快了。' },
+  { id: 'glasshouse', sign: '玻璃温室', a: 'glassjar', b: 'flowerpot', name: '玻璃罐温室', u: 'fac', fac: 'garden', story: '玻璃罐倒扣在花盆上，里面暖烘烘、湿漉漉的。种子还没来得及伸懒腰就发了芽，附近的花也跟着长得更快。' },
+  { id: 'umbrellatea', sign: '雨伞茶座', a: 'umbrella', b: 'teacup', name: '雨伞茶座', u: 'fac', fac: 'table', story: '撑开的小纸伞当遮阳棚，大茶杯当圆桌。春雨淅淅沥沥，饿了的小家伙都挤到伞底下，围着圆桌吃点心、聊闲天。' },
+  { id: 'kiteflag', sign: '风筝旗杆', a: 'kite', b: 'pencil', name: '风筝旗杆', u: 'fac', fac: 'flag', story: '长铅笔立在草地上当旗杆，风筝系在线上飞得高高的。风一吹，远处的小动物一眼就看见了小镇，新邻居来得也更快了。' },
+  { id: 'strawhome', sign: '草帽贝壳屋', a: 'strawhat', b: 'shell', name: '草帽贝壳小屋', u: 'home', story: '草帽扣在小圆屋上当屋顶，屋顶上再立一枚大贝壳。夏天屋里凉飕飕的，贴着墙还能听见海的声音。' },
+  { id: 'popseesaw', sign: '冰棍跷跷板', a: 'popsicle', b: 'button', name: '冰棍跷跷板', u: 'fac', fac: 'play', story: '一把冰棍棍拼成长长的木板，架在立起来的大纽扣上。这头翘起来，那头“咚”地落下，小家伙们排着队抢着玩，玩着玩着就更要好了。' },
+  { id: 'pumpkinstore', sign: '南瓜储藏室', a: 'pumpkin', b: 'rake', name: '南瓜储藏室', u: 'fac', fac: 'shed', story: '南瓜掏空了，里面又干燥又凉快。玩具小耙子靠在门边，扫来的栗子、干草和小材料都堆进去，能多放不少。' },
+  { id: 'bellboot', sign: '铃铛钟楼', a: 'jinglebell', b: 'boot', name: '铃铛靴子钟楼', u: 'fac', fac: 'bell', story: '雨靴立在草地上，顶上搭了个小亭子，挂起一只金铃铛。风一吹就叮叮当当，大家听着钟声起床，整个冬天都有了盼头。' },
+  { id: 'mittenhome', sign: '手套暖暖屋', a: 'mittens', b: 'hotbottle', name: '手套暖暖屋', u: 'home', story: '暖水袋当屋子，毛线手套守在门口两边。一进门就暖烘烘的，外面雪下得再大，里面也一点儿都不冷。' },
 ];
-for (const c of COMBOS) ITEM_K['combo_' + c.id] = { r: c.r, door: [0, c.r + 0.2], h: c.h };
+for (const c of COMBOS) { const r = comboR(c.id); ITEM_K['combo_' + c.id] = { r, door: [0, r + 0.2], h: comboH(c.id) }; }
 for (const k in ITEM_K) { ITEM_TEAM[k] = ITEM_TEAM[k] || 2; TEAM[k] = ITEM_TEAM[k]; CAP[k] = 2; KIND_DEFAULT[k] = ITEM_K[k]; }
 for (const k of ITEM_KEYS) if (!TEMPLATE_OF[k]) OBJ_NAME[k] = ITEMS[k].name;
 for (const c of COMBOS) OBJ_NAME['combo_' + c.id] = c.name;
@@ -176,7 +177,7 @@ export const TOWN_WISHES = {
   home: { say: '{sp}们还没有自己的家。我们找件够大的旧东西，给它们改成家吧。', items: ['teapot', 'boot'], title: '想要自己的家', need: '一件够大的旧物，给它们改成家', who: null, reward: { item: { button: 1 }, heart: 2 } },
   harvest: { say: '丰收节快到了！我们多种点花，再给它们一个能跳舞的台子。', season: 'autumn', items: ['cookietin', 'pumpkin'], title: '想把丰收节办得热热闹闹', need: '开 8 朵花，还要有个舞台、音乐台或南瓜灯', who: 'bear', reward: { heart: 8, seeds: { bluebell: 3 } } },
   // 季节愿望：只在那个季节出现，季节过了没实现就悄悄收起来，明年再来
-  kite: { say: '春天就该放风筝！阁楼里那只旧风筝，我们拿出来吧。', season: 'spring', items: ['kite', 'umbrella'], title: '想在花朝节放风筝', need: '一只风筝（春天阁楼里有），放进花园', who: 'chick', reward: { seeds: { tulip: 3 }, heart: 4 } },
+  kite: { say: '春天就该放风筝！阁楼里那只小纸风筝，我们拿出来吧。', season: 'spring', items: ['kite', 'umbrella'], title: '想在花朝节放风筝', need: '一只小纸风筝（春天阁楼里有），放进花园', who: 'chick', reward: { seeds: { tulip: 3 }, heart: 4 } },
   firefly: { say: '它们想看萤火虫……玻璃罐能当灯，夏天的草帽、贝壳也行。', season: 'summer', items: ['glassjar', 'strawhat'], title: '想在萤火夜看萤火虫', need: '一盏萤火虫灯，或者一样夏天的东西（草帽、贝壳……）', who: 'cat', reward: { item: { glassjar: 1 }, heart: 4 } },
   snowlamp: { say: '它们想办雪灯节！先等它们堆两个雪人，我们再放点冬天的东西。', season: 'winter', items: ['mittens', 'beanie'], title: '想办一场雪灯节', need: '堆起 2 个雪人，再放一样冬天的东西（手套、毛线帽……）', who: 'bear', reward: { heart: 6, seeds: { bluebell: 3 } } },
   lamp: { say: '晚上路太黑了，猫咪们想要一盏灯。我家的玻璃罐行不行？', items: ['glassjar'], title: '晚上想要一盏灯', need: '一个玻璃罐，或者会发光的东西', who: 'cat', reward: { item: { matchbox: 1, thimble: 1 }, heart: 3 } },

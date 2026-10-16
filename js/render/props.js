@@ -126,11 +126,9 @@ const TEX = {
     for (const [x, y, r] of [[70, 92, 17], [118, 112, 20], [176, 104, 16], [92, 132, 12], [214, 92, 12]]) { g.fillStyle = '#e0392f'; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(x - r * 0.35, y - r * 0.4, r * 0.28, r * 0.16, -0.6, 0, TAU); g.fill(); g.fillStyle = '#3f7a34'; for (let k = 0; k < 5; k++) { const a = k / 5 * TAU - PI / 2; g.beginPath(); g.ellipse(x + Math.cos(a) * 4, y - r + 3 + Math.sin(a) * 3, 4.5, 1.8, a, 0, TAU); g.fill(); } }
     g.fillStyle = '#5f9a4c'; g.fillRect(0, 0, 256, 6);
   },
-  umbrella(g) { // 伞面 [0,0,256,128]：红白格子（横向绕一圈 8 格）
-    g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, 256, 128);
-    for (let i = 0; i < 16; i++) { g.fillStyle = 'rgba(214,58,48,.85)'; g.fillRect(i * 16, 0, 8, 128); }
-    for (let j = 0; j < 8; j++) { g.fillStyle = 'rgba(214,58,48,.55)'; g.fillRect(0, j * 16, 256, 8); }
-    g.fillStyle = '#c23128'; g.fillRect(0, 0, 256, 10);
+  umbrella(g) { // 伞面 [0,0,256,128]：红白相间的 16 瓣纸伞（横向绕一圈 16 条），带一点纸纤维和折痕
+    for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#f5e8cc' : '#e4584a'; g.fillRect(i * 16, 0, 16, 128); g.fillStyle = 'rgba(120,50,30,.22)'; g.fillRect(i * 16, 0, 1.5, 128); }
+    noise(g, 0, 0, 256, 128, 500, 'rgba(255,255,255,.18)', 0.4, 1.3); noise(g, 0, 0, 256, 128, 300, 'rgba(120,60,30,.12)', 0.4, 1.2);
   },
   kite(g) { // 燕子风筝 [0,0,256,256]：贴图坐标就是风筝外形（0～1）
     g.fillStyle = '#2f63b5'; g.fillRect(0, 0, 256, 256);
@@ -141,8 +139,8 @@ const TEX = {
     g.strokeStyle = '#1d3d78'; g.lineWidth = 3; g.beginPath(); g.moveTo(128, 30); g.lineTo(128, 240); g.stroke();
   },
   strawhat(g) { // 草帽 [0,0,256,128]：一圈圈编草
-    g.fillStyle = '#e8c27a'; g.fillRect(0, 0, 256, 128);
-    for (let y = 0; y < 128; y += 6) { for (let x = (y / 6) % 2 ? 0 : 6; x < 256; x += 12) { g.fillStyle = 'rgba(170,120,50,.45)'; g.fillRect(x, y, 6, 3); g.fillStyle = 'rgba(255,240,190,.5)'; g.fillRect(x + 1, y + 3, 5, 2); } }
+    g.fillStyle = '#ecc983'; g.fillRect(0, 0, 256, 128);
+    for (let y = 0; y < 128; y += 8) { g.fillStyle = 'rgba(140,95,40,.6)'; g.fillRect(0, y, 256, 2); g.fillStyle = 'rgba(255,244,200,.55)'; g.fillRect(0, y + 2, 256, 2); for (let x = (y / 8) % 2 ? 0 : 5; x < 256; x += 10) { g.fillStyle = 'rgba(170,120,50,.5)'; g.fillRect(x, y + 4, 4, 4); } }
     noise(g, 0, 0, 256, 128, 120, 'rgba(150,100,40,.18)', 0.5, 1.5);
   },
   knit(g) { // 毛线：手套 [0,0,128,256] 红底白雪花；毛线帽 [128,0,128,256] 绿白条纹
@@ -265,12 +263,13 @@ const PARTS = {
 // ---------------------------------------------------------------- 季节限定旧物（形状、配色写在注释里，Codex 补画图标时对照）
 const along = (geo, col, p, dir, sx = 1, sy = sx, sz = sx) => { const g = geo.clone(); _q.setFromUnitVectors(_v.set(0, 1, 0), new THREE.Vector3(...dir).normalize()); g.applyMatrix4(_m.compose(new THREE.Vector3(...p), _q, _s.set(sx, sy, sz))); return tint(g, col); };
 Object.assign(PARTS, {
-  umbrella: inCell('umbrella', () => { // 旧雨伞：红白格子伞面撑开，伞柄插在地上，像一朵大蘑菇；八根伞骨，伞尖一个小铜帽
-    const can = (inner) => surf((u, v) => { const a = (inner ? u : 1 - u) * TAU; const sc = 1 - 0.07 * v * v * (1 - Math.abs(Math.cos(a * 4))); const rr = 1.05 * Math.sin(v * PI / 2) * sc; const y = 1.62 - 0.6 * (1 - Math.cos(v * PI / 2)) + 0.05 * v * v * (1 - Math.abs(Math.cos(a * 4))) - (inner ? 0.02 : 0); return [Math.cos(a) * rr, y, Math.sin(a) * rr]; }, 48, 12);
-    return [...U([0, 0, 256, 128], () => [T(can(false), '#ffffff')]), T(can(true), '#b8473c'),
-      ...Array.from({ length: 8 }, (_, k) => { const a = k / 8 * TAU; const pts = [0, 0.3, 0.6, 0.85, 1].map(v => { const rr = 1.0 * Math.sin(v * PI / 2); return [Math.cos(a) * rr, 1.58 - 0.6 * (1 - Math.cos(v * PI / 2)), Math.sin(a) * rr]; }); return T(tube(pts, 0.015, 10, 4), '#5a4030'); }),
-      T(cyl(0.035, 0.045, 1.66, 10), '#8a5530', 0, 0.83, 0), T(cyl(0.06, 0.035, 0.12, 10), '#3a2a1a', 0, 0.62, 0), ...Ly('metal', () => [T(cone(0.05, 0.18, 10), '#d9b263', 0, 1.7, 0), T(tor(0.06, 0.015, TAU, 12, 4), '#d9b263', 0, 1.0, 0, PI / 2)]),
-      T(tube([[0, 0.5, 0], [0.18, 0.4, 0.05], [0.24, 0.24, 0.05], [0.16, 0.14, 0.05]], 0.035, 12, 6), '#7a4a2a'), ...[0, 1, 2].map(k => T(sph(0.12, 8, 6), '#7a8a4a', Math.cos(k * 2.2) * 0.3, 0.02, Math.sin(k * 2.2) * 0.3, 0, 0, 0, 1, 0.35, 1))];
+  umbrella: inCell('umbrella', () => { // 鸡尾酒小纸伞：红白条的纸伞面撑开，十六根伞骨伸出伞沿一小截，细竹签当伞柄、下端削尖，伞顶一个小木帽
+    const G16 = 16; const prof = (v) => ({ rr: 1.05 * Math.pow(v, 0.92), y: 1.72 - 0.5 * Math.pow(v, 1.35) });
+    const can = (inner) => surf((u, v) => { const a = (inner ? u : 1 - u) * TAU; const ge = 0.5 + 0.5 * Math.cos(a * G16); const p = prof(v); const rr = p.rr * (1 + 0.028 * v * (1 - ge)); const y = p.y - 0.035 * v * (1 - ge) - (inner ? 0.025 : 0); return [Math.cos(a) * rr, y, Math.sin(a) * rr]; }, 96, 10);
+    return [...U([0, 0, 256, 128], () => [T(can(false), '#ffffff'), T(can(true), '#ffffff')]),
+      ...Array.from({ length: G16 }, (_, k) => { const a = (k + 0.5) / G16 * TAU; const p = prof(1); return T(cyl(0.012, 0.012, 0.2, 5), '#e6c58a', Math.cos(a) * (p.rr + 0.04), p.y - 0.07, Math.sin(a) * (p.rr + 0.04), Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); }),
+      ...Array.from({ length: 8 }, (_, k) => { const a = k / 8 * TAU + 0.2; const p = prof(0.58); return T(tube([[0, 1.3, 0], [Math.cos(a) * p.rr * 0.55, 1.36, Math.sin(a) * p.rr * 0.55], [Math.cos(a) * p.rr, p.y - 0.05, Math.sin(a) * p.rr]], 0.012, 10, 4), '#e6c58a'); }),
+      T(cyl(0.032, 0.032, 1.95, 8), '#e9d0a0', 0, 0.9, 0), T(cone(0.032, 0.14, 8), '#e9d0a0', 0, -0.06, 0, PI), T(cyl(0.075, 0.075, 0.1, 10), '#e6c28a', 0, 1.3, 0), T(cyl(0.065, 0.065, 0.14, 10), '#e0b97a', 0, 1.78, 0), T(sph(0.065, 10, 8), '#e0b97a', 0, 1.86, 0)];
   }),
   kite: inCell('kite', () => { // 燕子风筝：蓝身子、米色肚子、黄翅膀红点；斜靠着一根小木棍，尾巴拖着三个蝴蝶结，旁边一卷风筝线
     const sh = new THREE.Shape([[0.5, 0.97], [0.62, 0.86], [0.66, 0.66], [0.82, 0.6], [1.0, 0.66], [0.94, 0.52], [0.66, 0.44], [0.6, 0.25], [0.66, 0.03], [0.5, 0.18], [0.34, 0.03], [0.4, 0.25], [0.34, 0.44], [0.06, 0.52], [0.0, 0.66], [0.18, 0.6], [0.34, 0.66], [0.38, 0.86]].map(([x, y]) => new THREE.Vector2(x, y)));
@@ -292,8 +291,8 @@ Object.assign(PARTS, {
   strawhat: inCell('strawhat', () => { // 草帽：宽帽檐微微下垂，红丝带在帽身绕一圈，后面打个蝴蝶结
     const top = [[0.001, 0.78], [0.22, 0.79], [0.4, 0.75], [0.47, 0.6], [0.5, 0.36], [0.54, 0.29], [0.78, 0.22], [0.98, 0.13], [1.03, 0.08]];
     return [...U([0, 0, 256, 128], () => [T(lathe(top, 48), '#ffffff')]), T(lathe(top.slice().reverse().map(([x, y]) => [x * 0.985, y - 0.025]), 48), '#c9a05c'),
-      T(cyl(0.505, 0.51, 0.11, 40, true), '#d9443a', 0, 0.38, 0), ...[-1, 1].map(k => T(sph(0.11, 10, 8), '#d9443a', k * 0.13, 0.4, -0.52, 0, 0, 0, 1.2, 0.7, 0.45)), T(sph(0.05, 8, 6), '#b8352d', 0, 0.4, -0.53),
-      ...[-1, 1].map(k => T(box(0.07, 0.3, 0.02), '#d9443a', k * 0.07, 0.26, -0.56, 0.15, 0, k * 0.25))];
+      T(cyl(0.505, 0.51, 0.11, 40, true), '#6aa8a0', 0, 0.38, 0), ...[-1, 1].map(k => T(sph(0.11, 10, 8), '#6aa8a0', k * 0.13, 0.4, -0.52, 0, 0, 0, 1.2, 0.7, 0.45)), T(sph(0.05, 8, 6), '#4f8d85', 0, 0.4, -0.53),
+      ...[-1, 1].map(k => T(box(0.07, 0.3, 0.02), '#6aa8a0', k * 0.07, 0.26, -0.56, 0.15, 0, k * 0.25))];
   }),
   popsicle: () => { // 冰棍棍：一把扁扁的小木棍摊成扇形，一头还留着橘子色和草莓色的印子，一根橡皮筋
     const L = []; const cols = ['#f39a3d', '#f07a8a', '#f39a3d', '#8fd0e6', '#f07a8a'];
@@ -307,11 +306,11 @@ Object.assign(PARTS, {
     const top = paint(T(surf((u, v) => F(u, v, false), 40, 14), '#ffffff'), (x, y, z) => { const r = Math.hypot(x, z + 0.6) / 1.25; return _c.set('#fff3ec').lerp(new THREE.Color('#f2a7a0'), Math.min(1, r * 1.15)).getHex(); });
     return [top, T(surf((u, v) => F(u, v, true), 40, 10), '#f6e6dc'), ...[-1, 1].map(k => T(rbox(0.22, 0.06, 0.18, 0.03), '#f4d9cf', k * 0.17, 0.06, -0.62, 0, k * 0.4, 0))];
   },
-  rake: () => { // 竹子落叶耙：长柄躺在地上，扇形的耙齿缺了两根，压在一小堆红黄落叶上
-    const L = [T(cyl(0.045, 0.05, 2.1, 8), '#d8b56a', -0.35, 0.12, 0, 0, 0, PI / 2 - 0.06), ...[-1.05, -0.4, 0.3].map(x => T(tor(0.05, 0.012, TAU, 10, 3), '#9a7a3a', x, 0.12 + (x + 0.35) * 0.06, 0, 0, PI / 2, 0))];
-    for (let k = 0; k < 11; k++) { if (k === 3 || k === 8) continue; const a = (k / 10 - 0.5) * 1.6; L.push(T(box(0.035, 0.02, 0.72), '#e2c27a', 0.7 + Math.cos(a) * 0.36, 0.2, Math.sin(a) * 0.36, 0, -a + PI / 2, -0.06)); L.push(T(box(0.035, 0.08, 0.03), '#e2c27a', 0.7 + Math.cos(a) * 0.72, 0.17, Math.sin(a) * 0.72, 0, -a + PI / 2, 0)); }
-    L.push(T(tube([-0.7, -0.35, 0, 0.35, 0.7].map(t => [0.7 + Math.cos(t) * 0.5, 0.21, Math.sin(t) * 0.5]), 0.02, 12, 4), '#9a7a3a'), T(rbox(0.16, 0.08, 0.16, 0.03), '#9a7a3a', 0.72, 0.18, 0));
-    const lc = ['#e8862e', '#f2b33d', '#c9452b', '#e8a23a', '#b8562a']; for (let k = 0; k < 16; k++) { const a = k * 2.4, r = 0.15 + (k % 5) * 0.12; L.push(T(sph(0.17, 8, 5), lc[k % 5], 0.45 + Math.cos(a) * r, 0.04 + (k % 3) * 0.035, Math.sin(a) * r * 0.9 + 0.1, 0, a, 0, 1, 0.16, 0.6)); }
+  rake: () => { // 玩具小耙子：绿漆木柄（尾部鼓成一个小握把）斜躺在地上，绿漆铁皮耙头钉着两颗铆钉，六根弯弯的竹耙齿尖朝下碰着地
+    const headS = new THREE.Shape([new THREE.Vector2(0, -0.075), new THREE.Vector2(0.3, -0.46), new THREE.Vector2(0.3, 0.46), new THREE.Vector2(0, 0.075)]); const head = new THREE.ExtrudeGeometry(headS, { depth: 0.07, bevelEnabled: false });
+    const L = [T(tube([[0.5, 0.25, 0], [-0.5, 0.38, 0], [-1.35, 0.5, 0]], 0.075, 20, 6), '#d8b56a'), T(tube([[-0.95, 0.45, 0], [-1.4, 0.52, 0]], 0.115, 12, 8), '#6f9a52'), T(sph(0.115, 10, 8), '#6f9a52', -1.4, 0.52, 0), T(sph(0.12, 10, 8), '#6f9a52', -0.95, 0.45, 0),
+      T(tube([[0.42, 0.26, 0], [0.62, 0.25, 0]], 0.09, 8, 8), '#6f9a52'), T(head, '#7ea65c', 0.55, 0.2, 0, -PI / 2, 0, 0), ...[-0.09, 0.09].map(z => T(sph(0.03, 6, 4), '#6a5a48', 0.76, 0.3, z * 2.2))];
+    for (let k = 0; k < 6; k++) { const z = (k - 2.5) * 0.17; L.push(T(tube([[0.82, 0.24, z * 0.9], [1.06, 0.2, z * 1.1], [1.3, 0.1, z * 1.25], [1.42, 0.03, z * 1.3]], 0.04, 14, 5), '#e2bf72'), T(tor(0.042, 0.01, TAU, 8, 3), '#b8923e', 1.08, 0.2, z * 1.1, 0, PI / 2, 0)); }
     return L;
   },
   pumpkin: () => { // 大南瓜：十条圆圆的棱、顶上凹进去，弯弯的南瓜蒂，一根卷卷的藤和一片大叶子
@@ -454,10 +453,8 @@ const bowP = (x, y, z, col) => [T(cone(0.07, 0.13, 6), col, x - 0.07, y, z, 0, 0
 const mitten1 = inCell('knit', (side) => [...U([0, 0, 128, 256], () => [T(rbox(0.62, 0.2, 0.85, 0.09, 3), '#ffffff', 0, 0.1, 0)]), T(sph(0.31, 16, 10), '#c8322b', 0, 0.1, 0.42, 0, 0, 0, 1, 0.33, 0.62),
   T(sph(0.15, 12, 8), '#c8322b', side * 0.33, 0.1, 0.12, 0, side * 0.5, 0, 1, 0.55, 1.6), T(rbox(0.68, 0.24, 0.32, 0.08, 3), '#f4ede0', 0, 0.12, -0.55), ...[-0.24, -0.08, 0.08, 0.24].map(x => T(box(0.03, 0.245, 0.3), '#ddd2bd', x, 0.12, -0.55))]);
 const beeP = (x, y, z, k = 1) => [T(sph(0.07 * k, 8, 6), '#ffd23f', x, y, z, 0, 0, 0, 1, 0.85, 1.35), T(sph(0.072 * k, 8, 6), '#3a2a1a', x, y, z + 0.03 * k, 0, 0, 0, 1, 0.86, 0.3), ...[-1, 1].map(s => T(sph(0.06 * k, 8, 6), '#f4fbff', x + s * 0.06 * k, y + 0.07 * k, z - 0.01, 0, 0, s * 0.5, 1, 0.25, 0.7))];
-// 单独的落叶耙（照 PARTS.rake 的画法，不带落叶堆）：长柄躺在 x 方向，耙头朝 +x
-const rake1 = () => { const L = [T(cyl(0.045, 0.05, 2.1, 8), '#d8b56a', -0.35, 0.12, 0, 0, 0, PI / 2 - 0.06), ...[-1.05, -0.4, 0.3].map(x => T(tor(0.05, 0.012, TAU, 10, 3), '#9a7a3a', x, 0.12 + (x + 0.35) * 0.06, 0, 0, PI / 2, 0))];
-  for (let k = 0; k < 11; k++) { if (k === 3 || k === 8) continue; const a = (k / 10 - 0.5) * 1.6; L.push(T(box(0.035, 0.02, 0.72), '#e2c27a', 0.7 + Math.cos(a) * 0.36, 0.2, Math.sin(a) * 0.36, 0, -a + PI / 2, -0.06), T(box(0.035, 0.08, 0.03), '#e2c27a', 0.7 + Math.cos(a) * 0.72, 0.17, Math.sin(a) * 0.72, 0, -a + PI / 2, 0)); }
-  L.push(T(tube([-0.7, -0.35, 0, 0.35, 0.7].map(t => [0.7 + Math.cos(t) * 0.5, 0.21, Math.sin(t) * 0.5]), 0.02, 12, 4), '#9a7a3a'), T(rbox(0.16, 0.08, 0.16, 0.03), '#9a7a3a', 0.72, 0.18, 0)); return L; };
+// 单独的玩具小耙子（南瓜储藏室用）：长柄躺在 x 方向，耙头朝 +x
+const rake1 = () => PARTS.rake();
 // 简易蜂蜜罐（对照 item-honeyjar：琥珀色玻璃罐、里面是蜂蜜、米色粗布盖口、麻绳、小纸签）
 const HONEY = () => [...Ly('glass', () => [T(lathe([[0.001, 0.0], [0.66, 0.0], [0.74, 0.08], [0.76, 0.22], [0.76, 1.0], [0.68, 1.16], [0.54, 1.24], [0.52, 1.3], [0.001, 1.3]], 28), '#f6c25a')]),
   T(lathe([[0.001, 0.04], [0.68, 0.04], [0.72, 0.2], [0.72, 0.95], [0.001, 0.95]], 28), '#e99a2c'), T(sph(0.6, 16, 8, 0, TAU, 0, PI / 2), '#f7efd8', 0, 1.2, 0, 0, 0, 0, 1, 0.45, 1),

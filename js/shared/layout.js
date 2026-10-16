@@ -76,7 +76,7 @@ export const STAGE_NAME = ['开门、搭台阶', '开窗、挂灯', '接烟囱�
 // 默认尺寸（主线程会在启动时用造型实测值覆盖后发给 Worker）：r=占地半径，door=门口本地坐标(已含缩放)，h=高度
 export const KIND_DEFAULT = {
   egg: { r: 3.6, door: [0, 4.2], h: 7 }, tea: { r: 4.6, door: [0, 4.0], h: 5 }, fish: { r: 4.2, door: [-0.6, 3.9], h: 4 },
-  boot: { r: 4.3, door: [1.0, 3.8], h: 8 }, rboot: { r: 4.3, door: [0.9, 3.4], h: 8 }, cup: { r: 3.8, door: [0, 3.4], h: 4 }, honey: { r: 3.4, door: [0, 3.6], h: 6 },
+  boot: { r: 6.9, door: [2.0, 7.6], h: 13.6 }, rboot: { r: 8.0, door: [2.1, 7.8], h: 15.1 }, cup: { r: 3.8, door: [0, 3.4], h: 4 }, honey: { r: 3.4, door: [0, 3.6], h: 6 },
   leaf: { r: 3.0, door: [0, 2.8], h: 3 }, mush: { r: 2.9, door: [0, 2.6], h: 4 }, pine: { r: 2.9, door: [0, 2.7], h: 5 },
 };
 // 店铺门前的两张小桌（本地坐标，相对门口；x 横向，z 朝外），每张桌两个座位
@@ -95,7 +95,7 @@ export const RESOURCES = [
   { type: 'berry', name: '东边的莓果丛', x: -31, z: -21, r: 3.2, max: 30, regen: 0.013 },
   { type: 'berry', name: '南坡的莓果丛', x: 7, z: -36, r: 3.2, max: 30, regen: 0.013 },
   { type: 'veg', name: '菜田', x: -35, z: 9, r: 6.5, hx: 5.5, hz: 3.6, max: 40, regen: 0.02 },
-  { type: 'fish', name: '柳树下的钓点', x: FISH1[0], z: FISH1[1], r: 2.2, ang: FISH1[2], max: 36, regen: 0.013 },
+  { type: 'fish', name: '蒲公英下的钓点', x: FISH1[0], z: FISH1[1], r: 2.2, ang: FISH1[2], max: 36, regen: 0.013 },
   { type: 'fish', name: '小桥边的钓点', x: FISH2[0], z: FISH2[1], r: 2.2, ang: FISH2[2], max: 36, regen: 0.013 },
   { type: 'wood', name: '木枝堆', x: WOOD_POS[0], z: WOOD_POS[1], r: 3.0, max: 1e9, regen: 0 },
 ];

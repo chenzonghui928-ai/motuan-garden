@@ -126,22 +126,25 @@ function applyTime(t) {
 
 // ---------------------------------------------------------------- 季节和天气：草地、树叶、光线色温随季节平滑变化；阴天雨天光线变暗变冷，雾更近
 const SEA = { // leaf/grass 乘在原来的绿色上；sun/hemi 光线色温；ex 曝光
-  spring: { leaf: '#9ed35a', la: 0.45, grass: [1.06, 1.08, 0.8], sun: [1.0, 1.0, 0.97], hemi: [1.0, 1.02, 0.98], ex: 1.0 },
-  summer: { leaf: '#3d8a36', la: 0.35, grass: [0.8, 0.95, 0.7], sun: [1.05, 1.0, 0.9], hemi: [1.02, 1.0, 0.94], ex: 1.03 },
+  spring: { leaf: '#8fd04a', la: 0.2, grass: [1.06, 1.08, 0.8], sun: [1.0, 1.0, 0.97], hemi: [1.0, 1.02, 0.98], ex: 1.0 },
+  summer: { leaf: '#3d8a36', la: 0.2, grass: [0.8, 0.95, 0.7], sun: [1.05, 1.0, 0.9], hemi: [1.02, 1.0, 0.94], ex: 1.03 },
   autumn: { leaf: '#e9b334', leaf2: '#d8562a', la: 0.9, grass: [1.85, 1.0, 0.42], sun: [1.08, 0.93, 0.78], hemi: [1.05, 0.96, 0.86], ex: 1.0 },
-  winter: { leaf: '#9a8664', la: 0.7, grass: [1.7, 0.95, 1.05], sun: [0.9, 0.96, 1.12], hemi: [0.92, 0.98, 1.1], ex: 1.02 },
+  winter: { leaf: '#9a8664', la: 0.7, grass: [2.1, 0.8, 0.55], sun: [0.9, 0.96, 1.12], hemi: [0.92, 0.98, 1.1], ex: 1.02 },
 };
 const wxS = { rain: 0, snow: 0, cloud: 0, cover: 0, wet: 0, fest: 0 }; // 平滑后的天气（目标值来自模拟）
-const seaS = { leaf: new THREE.Color(1, 1, 1), grass: new THREE.Color(1, 1, 1), sun: new THREE.Color(1, 1, 1), hemi: new THREE.Color(1, 1, 1), ex: 1, si: 0, f: 0, w: [1, 0, 0, 0], leafOp: 1, bloom: 0 };
+const seaS = { leaf: new THREE.Color(1, 1, 1), grass: new THREE.Color(1, 1, 1), sun: new THREE.Color(1, 1, 1), hemi: new THREE.Color(1, 1, 1), ex: 1, si: 0, f: 0, w: [1, 0, 0, 0], leafOp: 1, bloom: 0, puff: 0, cl: 0 };
 const _sa = new THREE.Color(), _sb = new THREE.Color(), _wc = new THREE.Color(); const wxv = document.getElementById('wxv');
 const _lc = new THREE.Color(), _lc2 = new THREE.Color(); let curWx = 'sun';
 function seaCol(key, si, f) { const P = SEA[SEASONS[si]]; const v = P[key]; if (key === 'leaf') { _lc.set(v); if (P.leaf2) _lc.lerp(_lc2.set(P.leaf2), smooth(0.1, 0.95, f)); return [_lc.r, _lc.g, _lc.b]; } return v; }
 function seasonAt(simT) { // 季节位置：si 当前季、f 季内进度；换季后第一天平滑过渡
-  const pos = (simT / DAY / SEASON_DAYS) % 4; const si = Math.floor(pos), f = pos - si, pv = (si + 3) % 4; const b = smooth(0, 1 / SEASON_DAYS, f);
+  const pos = (simT / DAY / SEASON_DAYS) % 4; const si = Math.floor(pos), f = pos - si, pv = (si + 3) % 4; const b = simT < DAY * SEASON_DAYS ? 1 : smooth(0, 1 / SEASON_DAYS, f); // 新游戏的第一个春天不从“冬天”渐变过来
   for (const k of ['leaf', 'grass', 'sun', 'hemi']) { _sa.setRGB(...seaCol(k, pv, 1)); _sb.setRGB(...seaCol(k, si, f)); seaS[k].copy(_sa).lerp(_sb, b); }
   seaS.ex = lerp(SEA[SEASONS[pv]].ex, SEA[SEASONS[si]].ex, b); seaS.la = lerp(SEA[SEASONS[pv]].la, SEA[SEASONS[si]].la, b); seaS.si = si; seaS.f = f; seaS.w = [0, 0, 0, 0]; seaS.w[si] = b; seaS.w[pv] += 1 - b;
   const name = SEASONS[si]; seaS.leafOp = name === 'spring' ? 0.3 + 0.7 * smooth(0, 0.35, f) : name === 'summer' ? 1 : name === 'autumn' ? 1 - 0.88 * smooth(0.4, 1.0, f) : 0.12 * (1 - smooth(0, 0.15, f));
-  seaS.bloom = name === 'spring' ? smooth(0.03, 0.22, f) * (1 - smooth(0.78, 1.0, f)) : 0;
+  seaS.bloom = name === 'spring' ? smooth(0.0, 0.02, f) * (1 - smooth(0.85, 1.0, f)) : 0;
+  // 蒲公英：春开黄花 → 夏天结白绒球 → 秋天绒球被风吹散 → 冬天只剩枯秆；三叶草的白花春夏开、秋天谢
+  seaS.puff = name === 'summer' ? smooth(0, 0.3, f) : name === 'autumn' ? 1 - smooth(0.2, 0.8, f) : 0;
+  seaS.cl = name === 'spring' ? smooth(0.05, 0.35, f) : name === 'summer' ? 1 : name === 'autumn' ? 1 - smooth(0, 0.5, f) : 0;
 }
 function worldLight() {
   const cl = wxS.cloud, rn = wxS.rain, sn = wxS.snow;
@@ -161,6 +164,8 @@ function updateWorld(dt) {
   WXU.uSnow.value = wxS.cover; WXU.uWet.value = wxS.wet; WXU.uLeafT.value.copy(seaS.leaf); WXU.uLeafA.value = seaS.la; WXU.uGrassT.value.copy(seaS.grass);
   for (const m of SEASONAL.drop) { m.opacity = seaS.leafOp; m.visible = seaS.leafOp > 0.02; }
   for (const m of SEASONAL.bloom) { m.opacity = seaS.bloom; m.visible = seaS.bloom > 0.02; }
+  for (const m of SEASONAL.puff) { m.opacity = seaS.puff; m.visible = seaS.puff > 0.02; }
+  for (const m of SEASONAL.cl) { m.opacity = seaS.cl; m.visible = seaS.cl > 0.02; }
   return simT;
 }
 // ---------------------------------------------------------------- camera / controls / fish tank
@@ -499,8 +504,8 @@ function updateHandLeave(dt, t) { // 松手以后：手指张开，停一下，�
   P3.sh.mesh.material.opacity *= Math.exp(-dt * 4);
   if (P3.leave > 1.3) handOff();
 }
-// 花园外圈草坪上的大树（只是背景，模拟里没有）：别把旧物放进树干里
-function treeCheck(r, x, z, rad) { if (!r.ok || r.gold) return r; for (const [tx, tz, k] of OUTER_TREES) if (Math.hypot(x - tx, z - tz) < rad + 2.4 * k) return { ok: false, why: '这里有棵大树' }; return r; }
+// 花园外圈草坪上的蒲公英 / 三叶草 / 狗尾草丛（只是背景，模拟里没有）：别把旧物放进它们的根里
+function treeCheck(r, x, z, rad) { if (!r.ok || r.gold) return r; for (const [tx, tz, k] of OUTER_TREES) if (Math.hypot(x - tx, z - tz) < rad + 2.4 * k) return { ok: false, why: '这里长着一丛植物' }; return r; }
 function checkPlace() {
   if (mode.kind === 'move') { const l = struct && struct.lots.find(l => l.id === mode.id); const r = l ? treeCheck(moveCheck(l, mode.x, mode.z, mode.yaw, placeState()), mode.x, mode.z, l.r || 2) : { ok: false, why: '它已经不在了' }; mode.ok = r.ok; mode.why = r.why; mode.gold1 = null;
     hintEl.textContent = r.ok ? `${r.why}` : `不合适 · ${r.why}`; hintEl.className = 'paper ' + (r.ok ? 'good' : 'bad'); document.getElementById('placeOk').disabled = !r.ok; return; }

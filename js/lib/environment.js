@@ -3,13 +3,29 @@
 import * as THREE from 'three';
 import { LOW, PI, TAU, R, RI, pick, rng, clamp, lerp, smooth, fbm, vnoise, segDist, M, MAT, TX, ctex, G, sphereG, boxG, cylG, torusG, add, lathe, bake, mergeList, tint, taperTube, mergeStatic, timeU, ENV } from './core.js';
 import { makeLantern, makePot, makeCarrot } from './houses.js';
+import { dandelionPlant, cloverClump, foxtailClump, dandelionInstGeos, dandelionMats, ENV_PROBES, envProbe } from './plants.js';
+export { ENV_PROBES, envProbe };
 import { STREAM, streamDist, WORLD_R, EDGE_R, PLAZA_R, RESOURCES, STORE_POS, startGraph } from '../shared/layout.js';
 
 export const GS = 200; // 地面边长
+// 小溪在 200×200 的地块外不再截断：沿两端的方向弯弯地继续往外流到雾里（只在渲染里延伸，模拟里的 STREAM 不动，路网和桥不受影响）
+function streamExt(a, b, sign) { // a→b 是溪的端头方向（b 是端点），往外延伸 ~480 单位
+  const out = []; let x = b[0], z = b[1]; let ang = Math.atan2(b[1] - a[1], b[0] - a[0]); const ph = sign * 1.3;
+  for (let i = 1; i <= 80; i++) { const s = i * 6; ang += 0.0045 * Math.cos(s * 0.011 + ph) * 6 * 0.5; x += Math.cos(ang) * 6; z += Math.sin(ang) * 6; out.push([x, z]); }
+  return out;
+}
+export const STREAM_EXT_B = streamExt(STREAM[STREAM.length - 6], STREAM[STREAM.length - 1], 1);          // 下游：继续往东
+export const STREAM_EXT_A = streamExt(STREAM[5], STREAM[0], -1);                                         // 上游：继续往西北
+export const STREAM_FULL = [...STREAM_EXT_A.slice().reverse(), ...STREAM, ...STREAM_EXT_B];
+const EXT_SEGS = [[STREAM[0], ...STREAM_EXT_A], [STREAM[STREAM.length - 1], ...STREAM_EXT_B]];
+export const streamDistFull = (x, z) => Math.min(streamDist(x, z), extDist(x, z));
+function extDist(x, z) { let m = 1e9; for (const S of EXT_SEGS) for (let i = 0; i < S.length - 1; i++) { const a = S[i], b = S[i + 1]; if (Math.abs(a[0] - x) > 14 && Math.abs(b[0] - x) > 14 || Math.abs(a[1] - z) > 14 && Math.abs(b[1] - z) > 14) continue; m = Math.min(m, segDist(x, z, a[0], a[1], b[0], b[1])); } return m; }
+// 地面真实高度（含边缘渐隐；200×200 地块以外是平地）：远景物件脚下用它
+export const surfY = (x, z) => { const m = Math.max(Math.abs(x), Math.abs(z)); return m >= GS / 2 ? -0.03 : groundH(x, z) * (1 - smooth(GS * 0.44, GS * 0.5, m)); };
 export function groundH(x, z) {
   const r = Math.hypot(x, z);
   let h = smooth(WORLD_R + 6, WORLD_R + 30, r) * (fbm(x * 0.04 + 3, z * 0.04 + 7) * 3.2 + 0.4);
-  const sd = streamDist(x, z); const carve = 1 - smooth(2.2, 4.4, sd);
+  const sd = Math.min(streamDist(x, z), extDist(x, z)); const carve = 1 - smooth(2.2, 4.4, sd);
   return h * (1 - carve) - 1.15 * carve;
 }
 // ---------------------------------------------------------------- ground
@@ -24,7 +40,7 @@ export function buildGround(scene) {
     for (let i = 0; i < (LOW ? 1600 : 4200); i++) { g.fillStyle = pick(['rgba(140,206,80,.28)', 'rgba(104,178,58,.28)', 'rgba(160,214,90,.22)', 'rgba(92,164,52,.25)', 'rgba(178,220,96,.18)']); g.beginPath(); g.arc(R(0, S), R(0, S), R(6, 46) * S / 2048, 0, TAU); g.fill(); }
     for (let i = 0; i < (LOW ? 9000 : 30000); i++) { const x = R(0, S), y = R(0, S); g.strokeStyle = pick(['rgba(70,140,40,.45)', 'rgba(170,225,100,.5)', 'rgba(90,160,50,.4)']); g.lineWidth = S / 2048 * 1.4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-1.5, 1.5), y - R(3, 7) * S / 2048); g.stroke(); }
     g.lineCap = g.lineJoin = 'round';
-    const streamStroke = (w, col) => { g.strokeStyle = col; g.lineWidth = w * px; g.beginPath(); STREAM.forEach((p, i) => i ? g.lineTo(toC(p[0]), toC(p[1])) : g.moveTo(toC(p[0]), toC(p[1]))); g.stroke(); };
+    const streamStroke = (w, col) => { g.strokeStyle = col; g.lineWidth = w * px; g.beginPath(); STREAM_FULL.forEach((p, i) => i ? g.lineTo(toC(p[0]), toC(p[1])) : g.moveTo(toC(p[0]), toC(p[1]))); g.stroke(); };
     streamStroke(10.5, 'rgba(150,190,90,.5)'); streamStroke(8.8, '#d8c79a'); streamStroke(7.0, '#b8a27a'); streamStroke(5.4, '#6f8f86');
     g.fillStyle = 'rgba(120,150,60,.45)'; g.beginPath(); g.arc(toC(0), toC(0), 10.4 * px, 0, TAU); g.fill();
     g.fillStyle = '#c9ad78'; g.beginPath(); g.arc(toC(0), toC(0), 9.9 * px, 0, TAU); g.fill();
@@ -33,7 +49,6 @@ export function buildGround(scene) {
     const F = RESOURCES.find(r => r.type === 'veg');
     g.fillStyle = 'rgba(90,60,30,.55)'; g.beginPath(); g.roundRect(toC(F.x - F.hx - 0.9), toC(F.z - F.hz - 0.9), (F.hx + 0.9) * 2 * px, (F.hz + 0.9) * 2 * px, 1.2 * px); g.fill();
     for (const s of RESOURCES) if (s.type !== 'veg') { const gr = g.createRadialGradient(toC(s.x), toC(s.z), 0, toC(s.x), toC(s.z), (s.r + 2) * px); gr.addColorStop(0, 'rgba(60,90,30,.35)'); gr.addColorStop(1, 'rgba(60,90,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(toC(s.x), toC(s.z), (s.r + 2) * px, 0, TAU); g.fill(); }
-    const eg = g.createRadialGradient(S / 2, S / 2, S * 0.4, S / 2, S / 2, S * 0.5); eg.addColorStop(0, 'rgba(118,189,64,0)'); eg.addColorStop(1, 'rgba(118,189,64,1)'); g.fillStyle = eg; g.fillRect(0, 0, S, S);
   });
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
   const seg = LOW ? 72 : 140;
@@ -46,17 +61,25 @@ export function buildGround(scene) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals();
   const m = new THREE.Mesh(geo, M('#ffffff', { map: tex, vc: true, r: 0.95, rim: 0.25, fol: 2.3 })); m.receiveShadow = true; scene.add(m);
-  const outer = new THREE.Mesh(new THREE.RingGeometry(GS * 0.48, 1100, 64, 1).rotateX(-PI / 2), M('#76bd40', { r: 1, rim: 0, fol: 2.3 })); outer.position.y = -0.1; scene.add(outer);
+  // 外圈草地：条纹按世界坐标算（和地块里割草机留下的条纹一条对一条），再叠一层很淡的明暗斑，颜色和地块一致，拉到最远也看不出接缝
+  const outerM = M('#7cc444', { r: 0.95, rim: 0.25, fol: 2.3, outer: 1 }); const prevC = outerM.onBeforeCompile;
+  outerM.onBeforeCompile = (sh, r) => { prevC(sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+{ float jkU = vJkW.x * 0.87758 + vJkW.z * 0.47943; float jkOdd = mod(floor(jkU / 6.0), 2.0);
+  vec3 jkS = mix(vec3(0.965, 0.98, 0.97), vec3(1.04, 1.015, 1.06), jkOdd) * vec3(1.03, 0.965, 1.12);
+  float jkN = jkWN(vJkW.xz * 0.05) * 0.5 + jkWN(vJkW.xz * 0.21 + 4.0) * 0.5; diffuseColor.rgb *= jkS * (0.88 + 0.14 * jkN) * (0.95 + 0.1 * jkWN(vJkW.xz * 1.7)); }`); };
+  outerM.customProgramCacheKey = () => 'jk-outer'; outerM.polygonOffset = true; outerM.polygonOffsetFactor = 2; outerM.polygonOffsetUnits = 2;
+  const outer = new THREE.Mesh(new THREE.RingGeometry(GS * 0.48, 1100, 64, 1).rotateX(-PI / 2), outerM); outer.position.y = -0.03; outer.receiveShadow = true; scene.add(outer);
 }
 // ---------------------------------------------------------------- water (stream strip from shared polyline)
 export let waterMat = null;
 export function buildWater(scene) {
-  const A = 7; const pos = [], uv = [], idx = []; let acc = 0; const N = STREAM.length;
+  const A = 7; const pos = [], uv = [], idx = []; let acc = 0; const SF = STREAM_FULL, N = SF.length;
   for (let i = 0; i < N; i++) {
-    const c = STREAM[i], a = STREAM[Math.max(0, i - 1)], b = STREAM[Math.min(N - 1, i + 1)];
+    const c = SF[i], a = SF[Math.max(0, i - 1)], b = SF[Math.min(N - 1, i + 1)];
     let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
-    if (i) acc += Math.hypot(c[0] - STREAM[i - 1][0], c[1] - STREAM[i - 1][1]);
-    for (let j = 0; j < A; j++) { const u = j / (A - 1); const off = (u - 0.5) * 6.4; pos.push(c[0] - tz * off, -0.52, c[1] + tx * off); uv.push(u, acc / 6); }
+    if (i) acc += Math.hypot(c[0] - SF[i - 1][0], c[1] - SF[i - 1][1]);
+    for (let j = 0; j < A; j++) { const u = j / (A - 1); const off = (u - 0.5) * 6.4; const wx = c[0] - tz * off, wz = c[1] + tx * off; pos.push(wx, -0.52 + 0.56 * smooth(GS * 0.44, GS * 0.5, Math.max(Math.abs(wx), Math.abs(wz))), wz); uv.push(u, acc / 6); }
   }
   for (let i = 0; i < N - 1; i++) for (let j = 0; j < A - 1; j++) { const a = i * A + j, b = a + 1, c = a + A, d = c + 1; idx.push(a, c, b, b, c, d); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
@@ -83,6 +106,14 @@ export function buildWater(scene) {
       }`,
   });
   const m = new THREE.Mesh(geo, waterMat); m.renderOrder = 1; scene.add(m);
+  // 地块外的溪岸：平平的一条沙土带（水面盖在中间），沿着延伸段一直到雾里
+  { const pos2 = [], col2 = [], idx2 = []; const cB = new THREE.Color('#6f8f86'), cS = new THREE.Color('#b8a27a'), cD = new THREE.Color('#d8c79a'); let n2 = 0;
+    const prof = [[-4.7, cD], [-3.9, cD], [-3.2, cS], [-2.4, cB], [2.4, cB], [3.2, cS], [3.9, cD], [4.7, cD]];
+    for (let i = 0; i < N; i++) { const c = SF[i], a = SF[Math.max(0, i - 1)], b = SF[Math.min(N - 1, i + 1)]; if (Math.max(Math.abs(c[0]), Math.abs(c[1])) < GS * 0.5 - 1.5) continue; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+      for (const [off, col] of prof) { pos2.push(c[0] - tz * off, -0.012, c[1] + tx * off); col2.push(col.r, col.g, col.b); } n2++; }
+    for (let i = 0; i < n2 - 1; i++) for (let j = 0; j < prof.length - 1; j++) { const a = i * prof.length + j, b = a + 1, c = a + prof.length, d = c + 1; idx2.push(a, c, b, b, c, d); }
+    const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(pos2, 3)); g2.setAttribute('color', new THREE.Float32BufferAttribute(col2, 3)); g2.setIndex(idx2); g2.computeVertexNormals();
+    const bm = new THREE.Mesh(g2, M('#ffffff', { vc: true, r: 1, ds: true })); bm.receiveShadow = true; scene.add(bm); }
   // 河石 + 睡莲
   const rocks = []; const SS = STREAM;
   for (let i = 0; i < SS.length; i += 2) { const p = SS[i]; if (Math.hypot(p[0], p[1]) > 95) continue; for (const side of [-1, 1]) { if (rng() < 0.62) continue; const q = SS[Math.min(i + 1, SS.length - 1)]; const tx = q[0] - p[0], tz = q[1] - p[1]; const l = Math.hypot(tx, tz) || 1; const off = side * R(2.6, 3.6); rocks.push([p[0] - tz / l * off, p[1] + tx / l * off, R(0.45, 1.15)]); } }
@@ -159,10 +190,11 @@ export function buildResources(scene) {
     if (s.type === 'berry') {
       const g = new THREE.Group(); g.position.set(s.x, 0, s.z); scene.add(g);
       const bushM = M('#4f9f3a', { r: 0.85, fol: 1 }), bushM2 = M('#5fb048', { r: 0.8, fol: 1 }); // 莓果丛跟着树叶变色（秋天变红黄）
-      const spots = []; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + R(-0.3, 0.3), r = i ? R(1.4, 2.2) : 0; const sz = R(0.9, 1.35); spots.push([Math.cos(a) * r, Math.sin(a) * r, sz]); add(g, new THREE.IcosahedronGeometry(sz, 1), i % 2 ? bushM : bushM2, Math.cos(a) * r, sz * 0.72, Math.sin(a) * r, 0, R(0, 3), 0, 1, 0.85, 1); }
-      add(g, boxG(0.8, 0.5, 0.6), M('#ffffff', { map: TX.weave }), 2.6, 0.25, 1.4, 0, 0.5, 0);
+      const BK = 2.2; // 莓果丛按“野草莓 / 小浆果株”的尺度放大（株高约 5 单位、果实直径约 0.6）
+      const spots = []; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + R(-0.3, 0.3), r = (i ? R(1.4, 2.2) : 0) * BK; const sz = R(0.9, 1.35) * BK; spots.push([Math.cos(a) * r, Math.sin(a) * r, sz]); add(g, new THREE.IcosahedronGeometry(sz, 1), i % 2 ? bushM : bushM2, Math.cos(a) * r, sz * 0.72, Math.sin(a) * r, 0, R(0, 3), 0, 1, 0.85, 1); }
+      add(g, boxG(0.8 * BK, 0.5 * BK, 0.6 * BK), M('#ffffff', { map: TX.weave }), 2.6 * BK, 0.25 * BK, 1.4 * BK, 0, 0.5, 0);
       mergeStatic(g);
-      const N = 60; const bm = new THREE.InstancedMesh(G('berry', () => new THREE.SphereGeometry(0.13, 8, 6)), M('#e8392e', { r: 0.35 }), N);
+      const N = 60; const bm = new THREE.InstancedMesh(G('berry', () => new THREE.SphereGeometry(0.13 * 2.2, 8, 6)), M('#e8392e', { r: 0.35 }), N);
       for (let i = 0; i < N; i++) { const sp = spots[i % spots.length]; const a = R(0, TAU), b = R(0.15, 1.3); o.position.set(s.x + sp[0] + Math.cos(a) * Math.sin(b) * sp[2] * 0.98, sp[2] * 0.72 + Math.cos(b) * sp[2] * 0.85, s.z + sp[1] + Math.sin(a) * Math.sin(b) * sp[2] * 0.98); o.rotation.set(0, 0, 0); o.scale.setScalar(R(0.8, 1.2)); o.updateMatrix(); bm.setMatrixAt(i, o.matrix); col.set(pick(['#e8392e', '#c0392b', '#7a3fb0', '#e8392e'])); bm.setColorAt(i, col); }
       scene.add(bm); upd.push((f) => { bm.count = Math.round(N * clamp(f, 0, 1)); });
     } else if (s.type === 'veg') upd.push(buildField(scene, s));
@@ -178,11 +210,12 @@ export function buildResources(scene) {
       const g = new THREE.Group(); g.position.set(s.x, 0, s.z); scene.add(g);
       const bark = M('#9a6236', { r: 0.9 }), cut = M('#e8c48a', { r: 0.8 });
       for (let i = 0; i < 7; i++) { const row = i < 4 ? 0 : i < 6 ? 1 : 2; const k = row === 0 ? i : row === 1 ? i - 4 : 0; const x = (k - (row === 0 ? 1.5 : row === 1 ? 0.5 : 0)) * 0.72, y = 0.35 + row * 0.6; add(g, cylG(0.36, 0.36, 2.8, 10), bark, x, y, 0, PI / 2, 0, 0); for (const z of [-1.41, 1.41]) add(g, cylG(0.33, 0.33, 0.02, 10), cut, x, y, z, PI / 2, 0, 0); }
+      g.scale.setScalar(2.2); // 木枝按真实 10～20 厘米放大（一根长约 6 单位）
       add(g, cylG(0.55, 0.6, 0.6, 12), bark, 2.6, 0.3, 1.2); add(g, cylG(0.52, 0.52, 0.02, 12), cut, 2.6, 0.61, 1.2);
       add(g, boxG(0.08, 0.9, 0.08), MAT.woodMid, 2.6, 0.95, 1.2, 0, 0, 0.5); add(g, boxG(0.32, 0.22, 0.06), MAT.silver, 2.38, 1.33, 1.2, 0, 0, 0.5);
       for (let i = 0; i < 4; i++) add(g, boxG(0.8, 0.5, 0.6), MAT.woodMid, -2.7 + (i % 2) * 0.85, 0.25 + Math.floor(i / 2) * 0.5, 1.6);
       mergeStatic(g);
-      for (const [x, z, sc] of [[s.x + 5, s.z - 4, 1.0], [s.x - 4, s.z - 6, 0.85], [s.x + 7, s.z + 3, 0.9]]) buildTree(scene, x, z, sc);
+      dandelionPlant(scene, s.x + 9.5, groundH(s.x + 9.5, s.z - 7), s.z - 7, 11.5); foxtailClump(scene, s.x - 8.5, groundH(s.x - 8.5, s.z - 9.5), s.z - 9.5, 12.5); dandelionPlant(scene, s.x + 12, groundH(s.x + 12, s.z + 5), s.z + 5, 10);
     }
   }
   // 公共粮筐：库存越多，筐里的果蔬越多
@@ -226,15 +259,17 @@ function buildField(scene, F) {
   const o = new THREE.Object3D(); const c = new THREE.Color();
   per.forEach((p, i) => { const h = R(1.1, 1.75); o.position.set(F.x + p[0], -0.05, F.z + p[1]); o.rotation.set(R(-0.04, 0.04), R(0, 1), R(-0.04, 0.04)); o.scale.set(1, h, 1); o.updateMatrix(); body.setMatrixAt(i, o.matrix); c.set(cols[i % cols.length]); body.setColorAt(i, c); o.position.y = -0.05 + h; o.scale.set(1, 1, 1); o.updateMatrix(); cone.setMatrixAt(i, o.matrix); });
   for (const m of [body, cone]) { m.castShadow = m.receiveShadow = true; scene.add(m); }
+  // 小萝卜：红皮白尖的小圆根半露在土面上，顶着一簇宽叶；豌豆苗：细藤卷着须、长着成对的小叶和嫩豆荚（都是本来就矮的作物）
   const carrots = [], cabbages = [];
-  for (const z of rowZ) { for (let x = -F.hx + 0.7; x < -0.5; x += 0.62) carrots.push([x + R(-0.08, 0.08), z + R(-0.08, 0.08)]); for (let x = 0.9; x < F.hx - 0.4; x += 1.2) cabbages.push([x + R(-0.1, 0.1), z]); }
-  const cTop = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.11, 0.2, 8), M('#ff8a24', { r: 0.6 }), carrots.length);
-  const leafG = mergeList([0, 1, 2, 3].map(k => bake(new THREE.ConeGeometry(0.07, 0.65, 5), [Math.cos(k * 1.6) * 0.07, 0.32, Math.sin(k * 1.6) * 0.07], [Math.sin(k * 1.6) * 0.35, 0, -Math.cos(k * 1.6) * 0.35])));
-  const cLeaf = new THREE.InstancedMesh(leafG, M('#4caf3c', { r: 0.7, sway: 0.25 }), carrots.length);
-  carrots.forEach((p, i) => { o.position.set(F.x + p[0], 0.3, F.z + p[1]); o.rotation.set(0, R(0, 3), 0); o.scale.setScalar(R(0.85, 1.2)); o.updateMatrix(); cTop.setMatrixAt(i, o.matrix); o.position.y = 0.38; o.updateMatrix(); cLeaf.setMatrixAt(i, o.matrix); });
-  const cabOuter = mergeList([bake(new THREE.SphereGeometry(0.45, 12, 8), [0, 0, 0], [0, 0, 0], [1, 0.7, 1]), ...[0, 1, 2, 3, 4].map(k => bake(new THREE.SphereGeometry(0.38, 8, 6), [Math.cos(k * 1.256) * 0.32, 0.02, Math.sin(k * 1.256) * 0.32], [Math.sin(k * 1.256) * 0.6, 0, -Math.cos(k * 1.256) * 0.6], [1, 0.35, 1]))]);
-  const cab1 = new THREE.InstancedMesh(cabOuter, M('#93d05c', { r: 0.6 }), cabbages.length);
-  cabbages.forEach((p, i) => { o.position.set(F.x + p[0], 0.4, F.z + p[1]); o.rotation.set(0, R(0, 3), 0); o.scale.setScalar(R(0.9, 1.15)); o.updateMatrix(); cab1.setMatrixAt(i, o.matrix); });
+  for (const z of rowZ) { for (let x = -F.hx + 0.7; x < -0.5; x += 0.95) carrots.push([x + R(-0.1, 0.1), z + R(-0.1, 0.1)]); for (let x = 0.9; x < F.hx - 0.4; x += 1.2) cabbages.push([x + R(-0.1, 0.1), z]); }
+  const cTop = new THREE.InstancedMesh(new THREE.SphereGeometry(0.4, 10, 8).scale(1, 0.85, 1).translate(0, 0.12, 0), M('#e2403c', { r: 0.45 }), carrots.length);
+  const radLeaf = mergeList([0, 1, 2, 3, 4].map(k => bake(new THREE.SphereGeometry(0.34, 6, 4), [Math.cos(k * 1.256) * 0.34, 0.62, Math.sin(k * 1.256) * 0.34], [Math.sin(k * 1.256) * 0.7, 0, -Math.cos(k * 1.256) * 0.7], [0.7, 0.2, 1.7].map((v, i) => i === 2 ? v : v))));
+  const cLeaf = new THREE.InstancedMesh(radLeaf, M('#4caf3c', { r: 0.7, sway: 0.25 }), carrots.length);
+  carrots.forEach((p, i) => { o.position.set(F.x + p[0], 0.3, F.z + p[1]); o.rotation.set(0, R(0, 3), 0); o.scale.setScalar(R(0.85, 1.2)); o.updateMatrix(); cTop.setMatrixAt(i, o.matrix); o.position.y = 0.3; o.updateMatrix(); cLeaf.setMatrixAt(i, o.matrix); });
+  const peaCurve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.18, 0.7, 0.1), new THREE.Vector3(-0.1, 1.3, 0.2), new THREE.Vector3(0.22, 1.8, 0.1)]);
+  const peaG = mergeList([new THREE.TubeGeometry(peaCurve, 8, 0.045, 4, false), ...[0.5, 0.95, 1.4].flatMap((y, k) => [-1, 1].map(sd => bake(new THREE.SphereGeometry(0.28, 6, 4), [sd * 0.28 + 0.05, y, 0.1], [0, 0, sd * 0.5], [1, 0.22, 0.7]))), bake(new THREE.CapsuleGeometry(0.07, 0.34, 3, 5), [0.28, 1.05, 0.2], [0, 0, 1.2]), bake(new THREE.CapsuleGeometry(0.07, 0.3, 3, 5), [-0.2, 0.7, 0.18], [0, 0, -1.1])]);
+  const cab1 = new THREE.InstancedMesh(peaG, M('#7bc653', { r: 0.6, ds: true, sway: 0.2 }), cabbages.length);
+  cabbages.forEach((p, i) => { o.position.set(F.x + p[0], 0.15, F.z + p[1]); o.rotation.set(0, R(0, 3), 0); o.scale.setScalar(R(0.9, 1.25)); o.updateMatrix(); cab1.setMatrixAt(i, o.matrix); });
   for (const m of [cTop, cLeaf, cab1]) { m.castShadow = true; m.receiveShadow = true; scene.add(m); }
   mergeStatic(g);
   const nC = carrots.length, nB = cabbages.length;
@@ -306,14 +341,14 @@ export function buildTree(scene, x, z, s) {
   mergeStatic(g);
 }
 function buildMushroom(scene, x, z, s) {
-  const g = new THREE.Group(); g.position.set(x, groundH(x, z) - 0.05, z); g.scale.setScalar(s); g.rotation.y = R(0, TAU); scene.add(g);
+  const g = new THREE.Group(); g.position.set(x, surfY(x, z) - 0.05, z); g.scale.setScalar(s); g.rotation.y = R(0, TAU); scene.add(g);
   add(g, lathe([[0.01, 0], [0.42, 0], [0.38, 0.4], [0.32, 1.1], [0.36, 1.3], [0.01, 1.32]], 18), M('#fbf1e0', { r: 0.8 }));
   add(g, lathe([[0.01, 1.2], [1.2, 1.15], [1.35, 1.35], [1.2, 1.75], [0.7, 2.1], [0.01, 2.22]], 28), M('#ffffff', { map: TX.mush, r: 0.5 }));
   add(g, cylG(1.15, 0.4, 0.12, 28), M('#f3dcc0'), 0, 1.16, 0);
   mergeStatic(g);
 }
 function buildGiantDaisy(scene, x, z, h) {
-  const g = new THREE.Group(); g.position.set(x, groundH(x, z), z); scene.add(g); g.rotation.y = R(-0.5, 0.5) + Math.atan2(-x, -z);
+  const g = new THREE.Group(); g.position.set(x, surfY(x, z), z); scene.add(g); g.rotation.y = R(-0.5, 0.5) + Math.atan2(-x, -z);
   const c = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.6, h * 0.4, 0.2), new THREE.Vector3(-0.3, h * 0.8, 0.6), new THREE.Vector3(0, h, 1.2)]);
   add(g, taperTube(c, 20, 0.45, 0.3, 8), M('#4fa63a'));
   const head = new THREE.Group(); head.position.set(0, h, 1.2); head.rotation.x = 1.0; g.add(head);
@@ -328,7 +363,7 @@ function heartLeafGeo() {
     const g = new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.04, bevelSegments: 1, curveSegments: 5 }); g.translate(0, 0, -0.025); return g; });
 }
 function buildGiantClover(scene, x, z, h) {
-  const g = new THREE.Group(); g.position.set(x, groundH(x, z), z); g.rotation.y = R(0, TAU); scene.add(g);
+  const g = new THREE.Group(); g.position.set(x, surfY(x, z), z); g.rotation.y = R(0, TAU); scene.add(g);
   const m1 = M('#5cb84a', { r: 0.5, fol: 2.2 }), m2 = M('#4a9e3c', { r: 0.55, fol: 2.2 }), stemM = M('#5aa844', { r: 0.7, fol: 2.2 }), dew = M('#f2fbff', { m: 0.5, r: 0.05 });
   for (let k = 0; k < 2; k++) {
     const hh = h * (k ? 0.65 : 1); const ox = k ? R(2, 3.5) : 0, oz = k ? R(-1, 2) : 0;
@@ -342,44 +377,64 @@ function buildGiantClover(scene, x, z, h) {
   mergeStatic(g);
 }
 function gateClear(x, z) { const { nodes } = startGraph(); for (const n of nodes) if (n.k === 'gate') { const a = Math.atan2(n.z, n.x), b = Math.atan2(z, x); if (Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < 0.2) return false; } return true; }
-export const OUTER_TREES = []; // 花园外圈草坪上的树 [x, z, 大小]
+export const OUTER_TREES = []; // 花园外圈草坪上的植物丛（蒲公英 / 三叶草 / 狗尾草）[x, z, 避让大小]，放旧物时避开
 export function buildBackdrop(scene) {
   const n0 = scene.children.length;
   const ring = (n, r0, r1, f) => { let k = 0; for (let i = 0; i < n * 3 && k < n; i++) { const a = R(0, TAU), r = R(r0, r1); const x = Math.cos(a) * r, z = Math.sin(a) * r; if (streamDist(x, z) < 8 || !gateClear(x, z)) continue; f(x, z); k++; } };
-  ring(LOW ? 9 : 14, 90, 100, (x, z) => buildGiantDaisy(scene, x, z, R(7, 11)));
-  ring(LOW ? 6 : 10, 88, 100, (x, z) => buildGiantClover(scene, x, z, R(6, 10)));
-  ring(10, 80, 90, (x, z) => buildTree(scene, x, z, R(0.8, 1.2)));
-  ring(LOW ? 9 : 12, 54, 59, (x, z) => { const k = R(0.75, 1.05); OUTER_TREES.push([x, z, k]); buildTree(scene, x, z, k); }); // 小镇外圈的树：季节变化最看得出来（位置记下来，放旧物时避开）
-  ring(10, 80, 95, (x, z) => buildMushroom(scene, x, z, R(1.2, 4.5)));
+  ring(LOW ? 9 : 14, 90, 100, (x, z) => buildGiantDaisy(scene, x, z, R(12.6, 19.8)));   // 巨型雏菊（真雏菊 30～50 厘米，当远景花树，放大 1.8 倍）
+  ring(LOW ? 6 : 10, 88, 100, (x, z) => buildGiantClover(scene, x, z, R(3.3, 5.5)));    // 三叶草缩小到约 0.55 倍
+  // 远圈原来的树拿掉（真树 4 米放不进画面），补高大的狗尾草丛和蒲公英
+  { let k = 0; ring(LOW ? 8 : 14, 80, 92, (x, z) => { if (k++ % 3 === 2) dandelionPlant(scene, x, groundH(x, z), z, R(11, 14)); else foxtailClump(scene, x, groundH(x, z), z, R(11, 15)); }); }
+  // 小镇外圈：蒲公英（开花 / 结球）、三叶草丛、狗尾草丛 —— 季节变化靠它们（位置记下来，放旧物时避开）
+  { let k = 0; ring(LOW ? 9 : 12, 54, 59, (x, z) => { const t = k++ % 4; const y = groundH(x, z);
+      if (t < 2) { dandelionPlant(scene, x, y, z, R(10, 12)); OUTER_TREES.push([x, z, 1.9]); } else if (t === 2) { cloverClump(scene, x, y, z, R(4.2, 5)); OUTER_TREES.push([x, z, 1.25]); } else { foxtailClump(scene, x, y, z, R(11, 13)); OUTER_TREES.push([x, z, 1.3]); } }); }
+  ring(10, 80, 95, (x, z) => buildMushroom(scene, x, z, R(1.2, 2.2)));
+  // 地块外一直到雾里：疏疏落落的巨型花草，颜色和近处一致（拉远镜头不空、不穿帮）
+  const far = (n, r0, r1, f) => { for (let i = 0, k = 0; i < n * 4 && k < n; i++) { const a = R(0, TAU), r = R(r0, r1); const x = Math.cos(a) * r, z = Math.sin(a) * r; if (streamDistFull(x, z) < 10) continue; f(x, z, k); k++; } };
+  far(LOW ? 10 : 22, 104, 260, (x, z) => buildGiantDaisy(scene, x, z, R(14, 24)));
+  far(LOW ? 5 : 12, 104, 240, (x, z) => buildGiantClover(scene, x, z, R(4, 7)));
+  far(LOW ? 6 : 14, 104, 230, (x, z) => buildMushroom(scene, x, z, R(1.6, 3)));
+  far(LOW ? 8 : 20, 104, 280, (x, z, k) => { if (k % 2) dandelionPlant(scene, x, surfY(x, z), z, R(12, 17)); else foxtailClump(scene, x, surfY(x, z), z, R(12, 17)); });
   // 远方的人类花园：巨大的陶土花盆和倒下的浇水壶（提示“物件从那边来”）
   const pg = new THREE.Group(); pg.position.set(-104, groundH(-104, -40), -40); scene.add(pg);
   add(pg, cylG(9, 7, 13, 28), MAT.terracotta, 0, 6.5, 0); add(pg, torusG(9, 0.9, 8, 32), MAT.terracotta, 0, 13, 0, PI / 2); add(pg, sphereG(8, 16, 10), MAT.leaf, 0, 15, 0, 0, 0, 0, 1, 0.6, 1);
   mergeStatic(pg);
   // 人类花园的白色尖头栅栏（远远的一排巨大的木桩）
-  const fg = new THREE.Group(); scene.add(fg); const paint = M('#f4efe4', { r: 0.8 }), rail = M('#e6dccb', { r: 0.85 });
-  const fa0 = 2.62, fa1 = 3.18, FR = 97; let prev = null;
-  for (let a = fa0; a <= fa1; a += 0.034) { const x = Math.cos(a) * FR, z = Math.sin(a) * FR; const y = groundH(x, z); const h = 9 + Math.sin(a * 40) * 0.3;
-    const pg2 = new THREE.Group(); pg2.position.set(x, y, z); pg2.rotation.y = -a; fg.add(pg2);
-    add(pg2, boxG(0.5, h, 2.0), paint, 0, h / 2, 0); add(pg2, new THREE.ConeGeometry(1.42, 1.6, 4), paint, 0, h + 0.8, 0, 0, PI / 4, 0, 1, 1, 0.37);
-    if (prev) for (const ry of [2.6, 6.4]) { const mx = (prev[0] + x) / 2, mz = (prev[1] + z) / 2; const L = Math.hypot(x - prev[0], z - prev[1]); add(fg, boxG(L, 0.7, 0.35), rail, mx, (prev[2] + y) / 2 + ry, mz, 0, -Math.atan2(z - prev[1], x - prev[0]), 0); }
-    prev = [x, z, y]; }
-  mergeStatic(fg);
+  const fg = new THREE.Group(); scene.add(fg); const paint = M('#ffffff', { vc: true, r: 0.9 }), rail = M('#ffffff', { vc: true, r: 0.9 });
+  const fence = (w, h, d, base, topCol) => { const g = new THREE.BoxGeometry(w, h, d, 1, 8, 1); const P = g.attributes.position, C = new Float32Array(P.count * 3); const c0 = new THREE.Color(base), c1 = new THREE.Color(topCol), c = new THREE.Color(); for (let i = 0; i < P.count; i++) { c.copy(c0).lerp(c1, smooth(0.45, 1.0, P.getY(i) / h + 0.5)); C[i * 3] = c.r; C[i * 3 + 1] = c.g; C[i * 3 + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(C, 3)); return g; };
+  const FK = 4; const postG = fence(0.5 * FK, 9 * FK, 2.0 * FK, '#bf9f72', '#e9dcc0'), railG = new THREE.BoxGeometry(1, 0.7 * FK, 0.35 * FK);
+  const fenceArc = (FR, fa0, fa1) => { let prev = null;
+    for (let a = fa0; a <= fa1; a += 0.034 * FK * 97 / FR) { const x = Math.cos(a) * FR, z = Math.sin(a) * FR; const y = surfY(x, z);
+      const pg2 = new THREE.Group(); pg2.position.set(x, y, z); pg2.rotation.y = -a; fg.add(pg2);
+      add(pg2, postG, paint, 0, 9 * FK / 2, 0); add(pg2, new THREE.ConeGeometry(1.42 * FK, 1.6 * FK, 4), paint, 0, 9 * FK + 0.8 * FK, 0, 0, PI / 4, 0, 1, 1, 0.37);
+      if (prev) for (const ry of [2.6 * FK, 6.4 * FK]) { const mx = (prev[0] + x) / 2, mz = (prev[1] + z) / 2; const L = Math.hypot(x - prev[0], z - prev[1]); add(fg, railG, rail, mx, (prev[2] + y) / 2 + ry, mz, 0, -Math.atan2(z - prev[1], x - prev[0]), 0, L, 1, 1); }
+      prev = [x, z, y]; } };
+  fenceArc(97, 2.4, 3.45); fenceArc(135, 0.05, 1.35); fenceArc(175, 4.9, 6.0);   // 近处一段 + 更远的两段，拉远镜头时一直有人类世界的栅栏
   // 一根绿色的浇水软管弯弯曲曲地横在草坪上，一头连着倒下的浇水壶
-  const hp = []; for (let i = 0; i <= 24; i++) { const t = i / 24; const a = lerp(3.95, 5.0, t); const r = 84 + Math.sin(t * 9) * 5 + t * 6; const x = Math.cos(a) * r, z = Math.sin(a) * r; hp.push(new THREE.Vector3(x, groundH(x, z) + 0.9, z)); }
-  const hg = new THREE.Group(); scene.add(hg); add(hg, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hp), 120, 1.0, 10, false), M('#3fa35a', { r: 0.45, rim: 0.6 }));
-  for (const k of [0, 24]) add(hg, cylG(1.35, 1.35, 1.6, 14), M('#e8b64a', { m: 0.6, r: 0.35 }), hp[k].x, hp[k].y, hp[k].z, 0, 0, PI / 2);
+  const hp = []; for (let i = 0; i <= 24; i++) { const t = i / 24; const a = lerp(3.95, 5.0, t); const r = 84 + Math.sin(t * 9) * 5 + t * 6; const x = Math.cos(a) * r, z = Math.sin(a) * r; hp.push(new THREE.Vector3(x, groundH(x, z) + 0.5, z)); }
+  const hg = new THREE.Group(); scene.add(hg); add(hg, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hp), 120, 0.5, 10, false), M('#3fa35a', { r: 0.45, rim: 0.6 }));
+  for (const k of [0, 24]) add(hg, cylG(0.7, 0.7, 1.1, 14), M('#e8b64a', { m: 0.6, r: 0.35 }), hp[k].x, hp[k].y, hp[k].z, 0, 0, PI / 2);
   mergeStatic(hg);
   const cg = new THREE.Group(); cg.position.set(30, groundH(30, -108), -108); cg.rotation.set(0, 0.6, 0); scene.add(cg);
   const tin = M('#7fb2c9', { m: 0.6, r: 0.4 }); add(cg, cylG(7, 7.5, 9, 24), tin, 0, 7, 0, 0, 0, PI / 2 - 0.15); add(cg, cylG(0.9, 1.6, 14, 12), tin, 9, 8, 0, 0, 0, -0.9);
   mergeStatic(cg);
+  // 更远处再来几个人类花园的大物件：陶土花盆（盆里探出大草叶）、倒着的铁罐
+  const bigPot = (x, z, sc, yaw = 0) => { const q = new THREE.Group(); q.position.set(x, surfY(x, z), z); q.rotation.y = yaw; q.scale.setScalar(sc); scene.add(q);
+    add(q, cylG(9, 7, 13, 28), MAT.terracotta, 0, 6.5, 0); add(q, torusG(9, 0.9, 8, 32), MAT.terracotta, 0, 13, 0, PI / 2); add(q, sphereG(8, 16, 10), MAT.leaf, 0, 15, 0, 0, 0, 0, 1, 0.6, 1);
+    for (let k = 0; k < 7; k++) { const a = k / 7 * TAU; add(q, new THREE.ConeGeometry(0.9, 17 + (k % 3) * 4, 4), MAT.green, Math.cos(a) * 3.5, 22, Math.sin(a) * 3.5, Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); } mergeStatic(q); };
+  bigPot(150, 92, 1.5, 0.4); bigPot(-168, 118, 1.2, 1.2); bigPot(110, -150, 1.8, 2.1);
+  const bigTin = (x, z, sc, yaw) => { const q = new THREE.Group(); q.position.set(x, surfY(x, z), z); q.rotation.y = yaw; q.scale.setScalar(sc); scene.add(q); add(q, cylG(7, 7.5, 9, 24), tin, 0, 7, 0, 0, 0, PI / 2 - 0.15); add(q, cylG(0.9, 1.6, 14, 12), tin, 9, 8, 0, 0, 0, -0.9); mergeStatic(q); };
+  bigTin(-150, -120, 1.3, 0.9); bigTin(168, 20, 1.6, 2.4);
   // giant grass blades ring
   const segs = 8, pos = [], cl = [], idx = [];
   for (let i = 0; i <= segs; i++) { const t = i / segs; const w = 0.5 * Math.pow(1 - t, 0.75) + 0.02; const zb = t * t * 0.9; pos.push(-w, t, zb, w, t, zb); for (let k = 0; k < 2; k++) cl.push(lerp(0.22, 0.55, t), lerp(0.48, 0.82, t), lerp(0.16, 0.3, t)); }
   for (let i = 0; i < segs; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(cl, 3)); geo.setIndex(idx); geo.computeVertexNormals();
   const list = []; ring(40, 86, 99, (x, z) => { const n = RI(3, 6); for (let k = 0; k < n; k++) list.push([x + R(-2.5, 2.5), z + R(-2, 2), R(5, 12), R(0, TAU)]); });
+  // 地块外一直铺到雾里的大草叶丛（拉远镜头时，外面是一片草海，不是光秃秃的平地）
+  for (let i = 0, n = LOW ? 140 : 300; i < n; i++) { const a = R(0, TAU), r = Math.sqrt(R(104 * 104, 360 * 360)); const x = Math.cos(a) * r, z = Math.sin(a) * r; if (streamDistFull(x, z) < 9) continue; const m = RI(3, 6); for (let k = 0; k < m; k++) list.push([x + R(-3, 3), z + R(-3, 3), R(6, 15) * (1 + r / 500), R(0, TAU)]); }
   const im = new THREE.InstancedMesh(geo, M('#ffffff', { vc: true, ds: true, r: 0.7, sway: 0.18, rim: 0.5, fol: 2.4 }), list.length); const o = new THREE.Object3D();
-  list.forEach(([x, z, h, ry], i) => { o.position.set(x, groundH(x, z) - 0.1, z); o.rotation.set(0, ry, 0); o.scale.set(h * 0.13, h, h * 0.4); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+  list.forEach(([x, z, h, ry], i) => { o.position.set(x, surfY(x, z) - 0.1, z); o.rotation.set(0, ry, 0); o.scale.set(h * 0.13, h, h * 0.4); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
   im.castShadow = false; im.receiveShadow = true; scene.add(im);
   // 远景都在阴影范围外，不投影，省一半三角形
   for (const o of scene.children.slice(n0)) o.traverse(m => { if (m.isMesh) m.castShadow = false; });
@@ -388,20 +443,29 @@ export function buildBackdrop(scene) {
 export function buildFlora(scene) {
   const o = new THREE.Object3D(); const c = new THREE.Color(); const sets = [];
   const freeSpot = (x, z) => { const r = Math.hypot(x, z); if (r < PLAZA_R + 0.6 || r > 92) return false; if (streamDist(x, z) < 3.2) return false; for (const s of RESOURCES) if (Math.hypot(x - s.x, z - s.z) < (s.type === 'veg' ? 8 : s.r + 1.2)) return false; return true; };
+  // scale = [最小, 最大]；离中心越远长得越高（中心是小动物生活的地方，草矮一点，看得清路和门；外围草丛高过小动物）
+  const grow = (x, z) => lerp(1, 1.9, smooth(36, 86, Math.hypot(x, z)));
+  const place = (N, clusterN, rad, scale) => { const base = []; let guard = 0;
+    while (base.length < N && guard++ < N * 6) { const cx = R(-92, 92), cz = R(-92, 92); if (!freeSpot(cx, cz)) continue; const n = RI(clusterN[0], clusterN[1]); for (let j = 0; j < n && base.length < N; j++) { const x = cx + R(-rad, rad), z = cz + R(-rad, rad); if (!freeSpot(x, z)) continue; o.position.set(x, groundH(x, z) - 0.02, z); o.rotation.set(0, R(0, TAU), 0); o.scale.setScalar(R(scale[0], scale[1]) * grow(x, z)); o.updateMatrix(); base.push({ x, z, m: o.matrix.clone() }); } }
+    return base; };
   const make = (geo, mat, N, clusterN, rad, scale, colorF) => {
-    const im = new THREE.InstancedMesh(geo, mat, N); const base = []; let guard = 0;
-    while (base.length < N && guard++ < N * 6) { const cx = R(-92, 92), cz = R(-92, 92); if (!freeSpot(cx, cz)) continue; const n = RI(clusterN[0], clusterN[1]); for (let j = 0; j < n && base.length < N; j++) { const x = cx + R(-rad, rad), z = cz + R(-rad, rad); if (!freeSpot(x, z)) continue; o.position.set(x, groundH(x, z) - 0.02, z); o.rotation.set(0, R(0, TAU), 0); o.scale.setScalar(R(scale[0], scale[1])); o.updateMatrix(); base.push({ x, z, m: o.matrix.clone() }); if (colorF) { colorF(c); im.setColorAt(base.length - 1, c); } } }
+    const im = new THREE.InstancedMesh(geo, mat, N); const base = place(N, clusterN, rad, scale); if (colorF) base.forEach((b, i) => { colorF(c); im.setColorAt(i, c); });
     base.forEach((b, i) => im.setMatrixAt(i, b.m)); im.count = base.length; im.receiveShadow = true; scene.add(im); sets.push({ im, base }); return im;
   };
-  make(makeTuftGeo(7), M('#8fd45a', { vc: true, ds: true, r: 0.9, sway: 0.35, rim: 0.4, fol: 2.5 }), LOW ? 1100 : 3000, [1, 3], 1.5, [0.8, 1.6]);
+  const K = LOW ? 0.7 : 1; // 数量比旧版少 30%（放大以后每簇占的屏幕更大，不增加绘制压力）
+  make(makeTuftGeo(7), M('#8fd45a', { vc: true, ds: true, r: 0.9, sway: 0.35, rim: 0.4, fol: 2.5 }), Math.round((LOW ? 1100 : 3000) * 0.7 * K), [1, 3], 2.2, [1.5, 2.9]);
   const petals = new THREE.Shape(); for (let i = 0; i <= 20; i++) { const a = i / 20 * TAU; const r = 0.13 + 0.09 * Math.pow(Math.abs(Math.cos(a * 5)), 0.6); const x = Math.cos(a) * r, y = Math.sin(a) * r; i ? petals.lineTo(x, y) : petals.moveTo(x, y); }
   const daisyG = mergeList([tint(new THREE.CylinderGeometry(0.018, 0.022, 0.5, 4).translate(0, 0.25, 0), '#4caf3c'), tint(bake(new THREE.ShapeGeometry(petals), [0, 0.5, 0], [-PI / 2 + 0.25, 0, 0]), '#ffffff'), tint(bake(new THREE.SphereGeometry(0.06, 8, 5), [0, 0.52, 0.01], [0, 0, 0], [1, 0.5, 1]), '#ffc928')], true);
-  make(daisyG, M('#ffffff', { vc: true, ds: true, r: 0.7, sway: 0.2, drop: 1 }), LOW ? 200 : 500, [3, 7], 0.9, [0.9, 1.6]);
+  make(daisyG, M('#ffffff', { vc: true, ds: true, r: 0.7, sway: 0.2, drop: 1 }), Math.round((LOW ? 200 : 500) * 0.7 * K), [3, 7], 1.2, [3, 4.5]);
   const hs = new THREE.Shape(); hs.moveTo(0, 0); hs.bezierCurveTo(0.06, 0.02, 0.2, 0.08, 0.2, 0.18); hs.bezierCurveTo(0.2, 0.26, 0.1, 0.27, 0.0, 0.2); hs.bezierCurveTo(-0.1, 0.27, -0.2, 0.26, -0.2, 0.18); hs.bezierCurveTo(-0.2, 0.08, -0.06, 0.02, 0, 0);
   const heartG = new THREE.ShapeGeometry(hs, 4);
   const leaf3 = [0, 1, 2].map(k => { const g = heartG.clone(); g.rotateX(-PI / 2 + 0.25); g.rotateY(k * TAU / 3); g.translate(0, 0.22, 0); return g; });
   const cloverG = mergeList([new THREE.CylinderGeometry(0.015, 0.02, 0.22, 4).translate(0, 0.11, 0), ...leaf3]);
-  make(cloverG, M('#ffffff', { r: 0.7, sway: 0.15, ds: true, rim: 0, fol: 2.5 }), LOW ? 260 : 700, [4, 10], 1.2, [1.1, 2.0], (cc) => cc.setHSL(R(0.27, 0.32), R(0.5, 0.65), R(0.22, 0.3)));
+  make(cloverG, M('#ffffff', { r: 0.7, sway: 0.15, ds: true, rim: 0, fol: 2.5 }), Math.round((LOW ? 260 : 700) * 0.9 * K), [4, 10], 1.6, [3, 4.8], (cc) => cc.setHSL(R(0.27, 0.32), R(0.5, 0.65), R(0.22, 0.3)));
+  { // 蒲公英小苗：茎叶（跟着季节变色）+ 黄花（春）+ 白绒球（夏秋）；三块共用同一批位置，遮罩时一起隐藏
+    const dg = dandelionInstGeos(7), dm = dandelionMats(); const dBase = place(Math.round((LOW ? 50 : 90) * K), [1, 2], 2.0, [0.6, 1.1]);
+    for (const k of ['body', 'bloom', 'puff']) { const im = new THREE.InstancedMesh(dg[k], dm[k], dBase.length); dBase.forEach((b, i) => im.setMatrixAt(i, b.m)); im.count = dBase.length; im.receiveShadow = true; scene.add(im); sets.push({ im, base: dBase }); }
+  }
   // 遮罩：房子占地和道路上的花草隐藏（结构变化时调用，网格加速）
   const CELL = 4; const grid = new Map();
   sets.forEach((s, si) => s.base.forEach((b, i) => { const k = Math.floor(b.x / CELL) * 1000 + Math.floor(b.z / CELL); let a = grid.get(k); if (!a) grid.set(k, a = []); a.push([si, i]); }));

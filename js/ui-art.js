@@ -1,6 +1,8 @@
 // 界面素材：assets/ui/ 里有就用（读 manifest.json），没有就用这里手绘的 SVG 和 CSS 近似。
 // 图标统一写成 <span class="ic" data-ic="名字">，素材到了自动换成图片。
 import { SP_NAME } from './shared/layout.js';
+// 换成小件新造型的旧物（鸡尾酒小纸伞、玩具小耙子）：旧图标作废，改用 3D 造型现拍的小图
+const NEW_MODEL_ICON = new Set(['umbrella', 'rake']);
 
 const S = (body, vb = '0 0 64 64') => `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 const OL = 'stroke="#5a3a1e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"';
@@ -113,7 +115,7 @@ export function hydrate(root) {
   for (const el of root.querySelectorAll('.ic[data-ic]')) {
     if (el._done === el.dataset.ic + ART.ready) continue; el._done = el.dataset.ic + ART.ready;
     const n = el.dataset.ic; let url = null, svg = '';
-    if (n.startsWith('item:')) { const k = n.slice(5); url = artUrl('item-' + k) || ART.thumbs[k] || null; if (!url) svg = `<b style="font:800 12px var(--round)">${k}</b>`; }
+    if (n.startsWith('item:')) { const k = n.slice(5); url = (NEW_MODEL_ICON.has(k) ? null : artUrl('item-' + k)) || ART.thumbs[k] || null; if (!url) svg = `<b style="font:800 12px var(--round)">${k}</b>`; }
     else if (n.startsWith('gift:')) { const k = n.slice(5); url = artUrl('gift-' + k); svg = GIFT_SVG[k] || ''; }
     else if (n.startsWith('av:')) { const k = n.slice(3); url = artUrl('avatar-' + k); svg = avatarSVG(k); }
     else if (n.startsWith('mat:')) { const k = n.slice(4); url = artUrl('mat-' + ({ cap: 'bottlecap', grass: 'hay' }[k] || k)); svg = `<b style="font:800 12px var(--round)">${k}</b>`; }

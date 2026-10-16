@@ -30,7 +30,7 @@ export const rimU = { value: new THREE.Color(0.3, 0.27, 0.22) };
 export const timeU = { value: 0 };
 // 天气和季节（全局，main.js 每帧平滑地改）：积雪 0～1、地面湿润 0～1、树叶和草地的季节色（乘在原色上）
 export const WXU = { uSnow: { value: 0 }, uWet: { value: 0 }, uLeafT: { value: new THREE.Color(0.2, 0.5, 0.1) }, uLeafA: { value: 0 }, uGrassT: { value: new THREE.Color(1, 1, 1) } };
-export const SEASONAL = { drop: [], bloom: [] }; // 冬天会掉光的树叶、只在春天开的花（材质透明度由 main.js 控制）
+export const SEASONAL = { drop: [], bloom: [], puff: [], cl: [] }; // 冬天会掉光的叶子、只在春天开的花、夏天结秋天吹散的蒲公英绒球、春夏开的三叶草白花（材质透明度由 main.js 控制）
 // 所有程序化材质共用的天气片段：朝上的面按噪声慢慢积雪；湿的时候朝上的面变暗、变光滑（有一点反光）
 const WX_VERT_HEAD = 'varying vec3 vJkW;';
 const WX_VERT = `#ifdef USE_INSTANCING
@@ -109,8 +109,8 @@ export function M(color, o = {}) {
   });
   if (o.emissive) { m.emissive = new THREE.Color(o.emissive); m.emissiveIntensity = o.ei ?? 1; }
   if ((o.m ?? 0) > 0.3) { m.envMap = ENV; m.envMapIntensity = 1; METALS.push(m); }
-  if (o.fol || o.keep) m.userData.keep = true; // 季节材质不要被 globalMerge 转成顶点色（那样就没法统一变色了）
-  if (o.drop || o.bloom) { m.alphaHash = true; m.transparent = false; SEASONAL[o.drop ? 'drop' : 'bloom'].push(m); }
+  if (o.fol || o.keep || o.drop || o.bloom || o.puff || o.cl) m.userData.keep = true; // 季节材质不要被 globalMerge 转成顶点色（那样就没法统一变色了）
+  if (o.drop || o.bloom || o.puff || o.cl) { m.alphaHash = true; m.transparent = false; SEASONAL[o.drop ? 'drop' : o.bloom ? 'bloom' : o.puff ? 'puff' : 'cl'].push(m); }
   patch(m, { rim: o.rim ?? 1, sway: o.sway || 0, wx: o.wx ?? 1, fol: o.fol || 0 });
   MATS.set(key, m);
   return m;

@@ -87,7 +87,7 @@ export function createLenia({ ui, onEvent = () => { } }) {
     if (cur.combos > B.combos) { const c = cards.find(c => c.type === 'combo' || /又一座/.test(c.title)); const cb = c && COMBOS.find(x => c.title.includes(x.name)); say(cb ? `哇，${ITEMS[cb.a].name}和${ITEMS[cb.b].name}挨在一起，居然变成了${cb.name}！它们比我们会玩多了。` : '哇，两样东西挨在一起，变出了新东西！'); return; }
     if (cur.fest > B.fest && W && W.fest) { say(`今天是${W.fest.name}！我们躲在篱笆后面看吧，别让它们发现。`); return; }
     if (cur.trips > B.trips) { say(pick(['小队回来啦！快看看它们写了什么游记。', '它们平安回来了！我刚才一直在窗边等。'])); return; }
-    if (cur.season && B.season && cur.season !== B.season) { say({ spring: '春天来了！阁楼里的旧风筝，我好像找到了。', summer: '夏天了，晚上说不定能看到萤火虫。', autumn: '秋天啦，叶子都变黄了。它们会不会在准备过冬的东西？', winter: '冬天来了！它们会不会冷？我翻出了手套和毛线帽。' }[cur.season]); return; }
+    if (cur.season && B.season && cur.season !== B.season) { say({ spring: '春天来了！阁楼里的小纸风筝，我好像找到了。', summer: '夏天了，晚上说不定能看到萤火虫。', autumn: '秋天啦，叶子都变黄了。它们会不会在准备过冬的东西？', winter: '冬天来了！它们会不会冷？我翻出了手套和毛线帽。' }[cur.season]); return; }
     if (cur.sill >= 5 && B.sill < 5) { say(pick(['窗台都快放不下了！这么多回礼，是给两个大好人的吧？', '窗台上堆满了回礼……它们是不是发现有两个大好人了？'])); return; }
   }
   function start() { S.started = true; }

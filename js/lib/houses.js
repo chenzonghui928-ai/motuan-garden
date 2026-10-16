@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SHOP_TABLES } from '../shared/layout.js';
+import { HOUSE_CM, houseK } from '../shared/scale.js';
 import { GEO, DETAIL, reseed, R, RI, pick, PI, TAU, clamp, lerp, M, MAT, TX, ctex, G, sphereG, boxG, cylG, torusG, add, lathe, archShape, circleShape, bake, norm, mergeList, tint, taperTube, wallGeometry, roundRectPts, STAGE, withStage } from './core.js';
 
 export const makeDoor = (...a) => withStage(1, () => _makeDoor(...a));
@@ -624,7 +625,8 @@ function addShopDressing(root, door, shop) {
   STAGE.v = 0;
 }
 // ---------------------------------------------------------------- templates
-export const KIND_SCALE = { egg: 0.72, tea: 0.64, fish: 0.66, boot: 0.56, rboot: 0.54, cup: 0.6, honey: 0.74, leaf: 1, mush: 1, pine: 0.9 };
+// 房子缩放从 shared/scale.js 登记的真实尺寸推出（旧值：egg .72 tea .64 fish .66 boot .56 rboot .54 cup .6 honey .74 leaf 1 mush 1 pine .9；boot、rboot 放大了）
+export const KIND_SCALE = Object.fromEntries(Object.keys(HOUSE_CM).map(k => [k, houseK(k)]));
 const BUILDERS = { egg: buildEgg, tea: buildTeapot, fish: buildFishcan, boot: buildBoot, rboot: buildRainBoot, cup: buildCup, honey: buildHoney, leaf: buildLeaf, mush: buildMush, pine: buildPine };
 function hashStr(s) { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; }
 export let DBG_PARTS = null; export function dbgParts(on) { DBG_PARTS = on ? [] : null; return DBG_PARTS; }
