@@ -3,24 +3,9 @@
 import { settings } from './settings.js';
 import { ITEMS, COMBOS } from './shared/items.js';
 
-// Lenia 的小头像：暖棕短发、刘海、黄色发夹、雀斑、红脸蛋，珊瑚色毛衣配碎花小圆领（程序化 SVG，和界面的描边风格一致）
-export function leniaFace() {
-  const OL = 'stroke="#5a3a1e" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"';
-  return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="Lenia">
-  <path d="M13 35c-2-15 6-25 19-25s21 10 19 25c-1 6-2 11-4 13H17c-2-2-3-7-4-13z" fill="#8a5232" ${OL}/>
-  <path d="M10 64c2-9 10-13.5 22-13.5S52 55 54 64z" fill="#e9877a" ${OL}/>
-  <path d="M24 51.5q8 5 16 0l-1.5 4q-6.5 3.5-13 0z" fill="#fbf4e6" ${OL}/><circle cx="28" cy="54" r="1" fill="#e98ea4"/><circle cx="36" cy="54" r="1" fill="#f4b844"/>
-  <path d="M28 44h8v8h-8z" fill="#f6cfb2"/>
-  <ellipse cx="32" cy="34" rx="13.5" ry="14.5" fill="#ffe4cf" ${OL}/>
-  <path d="M17.5 31c-1 8 0 13 2.5 16.5h-4.5c-2.5-5-2.4-12 2-16.5zM46.5 31c1 8 0 13-2.5 16.5h4.5c2.5-5 2.4-12-2-16.5z" fill="#8a5232" ${OL}/>
-  <path d="M18.4 31.5c0-11 6.4-17.5 14.6-17.5 8 0 14.2 6.2 14.2 14.6-4.2-.6-7.4-3.4-9.4-6.8-3 4.2-10 8-19.4 9.7z" fill="#9a5c36" ${OL}/>
-  <path d="M27 18.5c3-2 7-2.4 10-1.2" stroke="#c4875a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".8"/>
-  <g transform="translate(42.5 21.5) rotate(28)"><rect x="-5.2" y="-1.9" width="10.4" height="3.8" rx="1.9" fill="#ffcf3a" ${OL}/><circle cx="-1.6" cy="0" r="1" fill="#e0393a"/><circle cx="1.6" cy="0" r="1" fill="#e0393a"/></g>
-  <path d="M23.5 35q2.6-2.8 5.2 0M35.3 35q2.6-2.8 5.2 0" fill="none" stroke="#4a3020" stroke-width="2" stroke-linecap="round"/>
-  <ellipse cx="22.6" cy="40" rx="3.3" ry="2.1" fill="#f59f95" opacity=".55"/><ellipse cx="41.4" cy="40" rx="3.3" ry="2.1" fill="#f59f95" opacity=".55"/>
-  <g fill="#c07a4e"><circle cx="21.2" cy="38.2" r=".7"/><circle cx="23.6" cy="38.9" r=".7"/><circle cx="22.2" cy="40.6" r=".6"/><circle cx="42.8" cy="38.2" r=".7"/><circle cx="40.4" cy="38.9" r=".7"/><circle cx="41.8" cy="40.6" r=".6"/></g>
-  <path d="M28.6 42.6q3.4 3.2 6.8 0" fill="#e0675d" stroke="#5a3a1e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
+// Lenia 的小头像：直接用官方立绘（assets/lenia/*.png）裁出脸部，放进圆形徽章
+export function leniaFace(ex = 'smile') {
+  return `<img class="lface" src="assets/lenia/${ex}.png" alt="Lenia">`;
 }
 
 export const PORTRAITS = ['smile', 'happy', 'surprised', 'wave', 'thinking', 'sleepy', 'whisper'];

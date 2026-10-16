@@ -19,7 +19,7 @@ export function startGuide(ui, { force = false, onDone = null } = {}) {
   ];
   const STEPS = force || !seen(OLD) ? [...INTRO, ...TOUR] : INTRO;
   const el = document.createElement('div'); el.id = 'guide';
-  el.innerHTML = `<div class="hole"></div><div class="gcard paper"><div class="ghead"><span class="lbadge">${leniaFace()}</span><b class="ttlf">Lenia</b><span class="gstep"></span></div><h3 class="ttlf"></h3><p></p><div class="gbtns"><button class="woodbtn gskip">跳过</button><button class="woodbtn green gnext">下一步</button></div></div>`;
+  el.innerHTML = `<div class="hole"></div><div class="gcard paper"><div class="ghead"><span class="lbadge">${leniaFace('wave')}</span><b class="ttlf">Lenia</b><span class="gstep"></span></div><h3 class="ttlf"></h3><p></p><div class="gbtns"><button class="woodbtn gskip">跳过</button><button class="woodbtn green gnext">下一步</button></div></div>`;
   document.body.appendChild(el); requestAnimationFrame(() => el.classList.add('on'));
   const hole = el.querySelector('.hole'), card = el.querySelector('.gcard'); let i = 0, timer = 0;
   const place = () => {

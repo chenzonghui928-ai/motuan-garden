@@ -690,7 +690,8 @@ function nuggetLine(I) {
 }
 function nuggetTap() {
   stopFollow(); closeThought(); mascotS.bub = 3.5; nugget.poke(false, 14);
-  ui.openNugget({ line: nuggetLine(info), pending: true, gift: null, ids: [] });
+  const line = nuggetLine(info); ui.openNugget({ line, pending: true, gift: null, ids: [] });
+  lenia.hide(); setTimeout(() => lenia.say(line, { kind: 'force' }), 120); // 鸡块带来的话由 Lenia 本人在左下角说出来
   send({ type: 'lenia', act: 'mascot', who: 'nugget', req: 'nugget', x: nugget.x, z: nugget.z });
 }
 const CAMEO_TAP = {

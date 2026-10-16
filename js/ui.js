@@ -34,6 +34,7 @@ export function createUI(api) {
     if (tab === 'dex') { S.albumSub = 'dex'; tab = 'album'; }
     S.tab = tab; S.view = view || tab;
     for (const b of document.querySelectorAll('#toolbar .tool')) b.classList.toggle('on', b.dataset.tab === tab);
+    document.body.classList.toggle('nugtab', tab === 'nugget');
     if (tab === 'town') { sheet.classList.remove('open'); document.body.classList.remove('sheet-open'); api.onSheet(false); }
     else { sheet.classList.add('open'); document.body.classList.add('sheet-open'); api.onSheet(true); render(true); }
     if (tab === 'album') { S.seenCards = S.cards.length ? S.cards[0].id : 0; updateDots(); }
@@ -366,7 +367,6 @@ export function createUI(api) {
   function viewNugget(I) {
     const d = S.nug || {}; const wrap = (inner) => `<div class="site thing nug"><div class="stake"></div><div class="signboard"><span class="pin l"></span><span class="pin r"></span>${closeBtn}<div class="sp paper"><div class="scroll" style="max-height:calc(100vh - 210px)">${inner}</div></div></div></div>`;
     let h = `<div class="sthead"><img class="nugpic" src="assets/lenia/nugget-${d.gift ? 'surprised' : 'happy'}.png" alt="" onerror="this.style.display='none'"><h3 class="ttlf">鸡块</h3></div><div class="stline">Lenia 家的白团子，常在花园里蹦来蹦去</div>`;
-    h += `<div class="sec">它带来了 Lenia 的话</div><div class="lline"><span class="lbadge lmini">${leniaFace()}</span><span>「${esc(d.line || '……')}」</span></div>`;
     if (d.gift) h += `<div class="sec">还送来了</div><div class="tsrcs"><span class="tsrc">${d.gift.item ? itemIc(d.gift.item) : ''}<b>${esc(d.gift.name)}</b></span></div><div class="muted" style="margin-top:4px">${d.gift.item ? '已经放进 Lenia 的储物箱了' : '花种放进打理的种子袋了'}</div>`;
     else if (d.pending) h += `<div class="muted" style="margin-top:6px">它在怀里摸了摸……</div>`;
     if (d.ids && d.ids.length) h += `<div class="sec">好奇地围过来的</div><div class="workers">${d.ids.map(id => I.res.find(r => r.id === id)).filter(Boolean).map(r => `<button data-act="res" data-v="${r.id}">${av(r.sp, 'sm')}<b>${esc(r.name)}</b></button>`).join('')}</div>`;

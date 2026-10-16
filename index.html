@@ -460,6 +460,10 @@
   #guide .ghead .gstep{margin-left:auto}
   /* ---------------------------------------------------------------- Lenia：头像徽章 + 对话气泡 */
   .lbadge{display:inline-block;flex:none;width:58px;height:58px;border-radius:50%;box-sizing:border-box;overflow:hidden;background:radial-gradient(circle at 40% 30%,#fff7e4,#f3dfb5 70%);border:3px solid var(--brass);box-shadow:0 3px 0 var(--brass2),0 6px 10px rgba(60,30,10,.3)}
+  .lbadge img.lface{width:165%;height:165%;max-width:none;display:block;margin:-10% 0 0 -32.5%;object-fit:cover}
+  body.sheet-open.nugtab #lsay.on{opacity:1;pointer-events:auto}
+  @media (max-width:700px){body.nugtab #lsay{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 150px)}}
+  #guide .ghead .lbadge{width:62px;height:62px}
   .lbadge svg{width:100% !important;height:100% !important;display:block;transform:translateY(3%)}
   .lbadge.lmini{width:32px;height:32px;padding:0;border-width:2px;box-shadow:0 2px 0 var(--brass2)}
   #lsay{position:fixed;left:50%;bottom:calc(var(--safe-b) + 122px);width:min(440px,calc(100% - 24px));transform:translate(-50%,14px);display:flex;align-items:flex-end;gap:8px;z-index:5;opacity:0;pointer-events:none;transition:opacity .35s,transform .45s cubic-bezier(.3,1.5,.5,1);cursor:pointer}
