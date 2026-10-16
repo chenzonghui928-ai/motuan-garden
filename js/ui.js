@@ -522,8 +522,11 @@ export function createUI(api) {
   const putGhost = (g, x, y) => { g.style.left = x + 'px'; g.style.top = y + 'px'; };
   function setTip(text, bad = false, ms = 0) { dragTip.textContent = text; dragTip.classList.toggle('bad', bad); clearTimeout(tipTimer); if (ms) tipTimer = setTimeout(() => { dragTip.textContent = '按住旧物，拖进花园'; dragTip.classList.remove('bad'); }, ms); }
   function dragStop() { if (!bd) return; clearTimeout(bd.timer); if (bd.ghost) bd.ghost.remove(); cleanCells(); dragTip.classList.remove('hot'); try { body.releasePointerCapture(bd.id); } catch (e) { } bd = null; }
+  // 按住拿起的那一刻：箱子和详情立刻收走（只留底边一条细缝），旧物马上进放置模式、跟着手指，整个屏幕空出来看花园
   function dragArm() {
-    if (!bd || bd.on) return; bd.on = true; const c = cellOf(bd.k); if (c) c.classList.add('lift'); dragTip.classList.add('hot');
+    if (!bd || bd.on) return; bd.on = true; dragTip.classList.add('hot');
+    if (api.dragPlace && api.dragPlace(bd.k, { pointerId: bd.id, pointerType: bd.touch ? 'touch' : 'mouse', clientX: bd.x, clientY: bd.y })) { bd.handed = true; bd.moved = true; document.body.classList.add('boxdrag'); sheet.classList.add('tuck'); const c = cellOf(bd.k); if (c) c.classList.add('away'); return; }
+    const c = cellOf(bd.k); if (c) c.classList.add('lift'); // 放置模式进不去（比如教程接管）：退回原来的浮起样子
     try { body.setPointerCapture(bd.id); } catch (e) { /* 不支持就算了 */ }
   }
   body.addEventListener('pointerdown', (e) => {
@@ -537,7 +540,7 @@ export function createUI(api) {
     if (!bd.on) {
       if (bd.touch ? (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.6) : d > 6) dragArm(); // 手机：横着拖算拖出；鼠标：明显拖动
       else if (bd.touch && d > MOVE_TOL) { dragStop(); return; } // 手机上还没按够就动了：是在滑动列表，不拿旧物
-      if (!bd.on) return;
+      if (!bd.on || bd.handed) return;
     }
     if (d < 5 && !bd.moved) return;
     if (!bd.moved) { bd.moved = true; const c = cellOf(bd.k); if (c) { c.classList.remove('lift'); c.classList.add('away'); } bd.ghost = makeGhost(bd.k); }
@@ -558,8 +561,8 @@ export function createUI(api) {
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && bd && !bd.handed) dragStop(); });
   // 放置模式那边松手之后回来：放下了 → 关箱子；没放成 → 旧物飞回格子、箱子弹出来，并说明原因
   function boxDragDone() { document.body.classList.remove('boxdrag'); sheet.classList.remove('tuck'); dragStop(); close(); }
-  function boxDragBack(pt, why) {
-    const k = bd && bd.k; document.body.classList.remove('boxdrag'); dragStop(); if (k == null) { sheet.classList.remove('tuck'); return; }
+  function boxDragBack(pt, why, pick) {
+    const k = bd && bd.k; if (pick && k != null) { S.boxSel = k; render(); } document.body.classList.remove('boxdrag'); dragStop(); if (k == null) { sheet.classList.remove('tuck'); return; }
     const g = makeGhost(k); putGhost(g, pt.x, pt.y);
     frame.style.transition = 'none'; sheet.classList.remove('tuck'); void frame.offsetWidth; const c = cellOf(k), r = c && c.getBoundingClientRect(); sheet.classList.add('tuck'); void frame.offsetWidth; frame.style.transition = ''; sheet.classList.remove('tuck');
     if (c) c.classList.add('away');

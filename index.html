@@ -213,7 +213,7 @@
   .tabs button.on{color:#fff;background:radial-gradient(ellipse at 50% 40%,#6ab25a,#3e7d34);box-shadow:0 0 0 3px #e2bf62,0 3px 0 3px #5a3a14}
   .tabs button:active{transform:translateY(3px)}
   .tabs button.img{background-size:100% 100%;box-shadow:none}
-  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:7px;border-radius:10px;background:linear-gradient(180deg,#5a3418,#6e4220);box-shadow:inset 0 4px 10px rgba(0,0,0,.45)}
+  .slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:7px;border-radius:10px;background:linear-gradient(180deg,#5a3418,#6e4220);box-shadow:inset 0 4px 10px rgba(0,0,0,.45)}
   .slot{position:relative;aspect-ratio:1/1;border-radius:6px;background:var(--noise),radial-gradient(ellipse at 50% 70%,#b89a72,#8d6c48);box-shadow:inset 0 3px 6px rgba(0,0,0,.4),inset 0 0 0 2px rgba(255,220,170,.15);display:flex;align-items:center;justify-content:center;transition:transform .08s}
   .slot.img{background-size:100% 100%;box-shadow:none}
   .slot .ic{width:80%;height:80%;filter:drop-shadow(0 3px 2px rgba(0,0,0,.35))}
@@ -235,7 +235,8 @@
   #dragTip.on{display:block}
   #dragTip.hot{box-shadow:0 0 0 3px #6fc24f,0 4px 10px rgba(40,20,5,.35)}
   #dragTip.bad{color:var(--tomato2);box-shadow:0 0 0 3px #e0604a,0 4px 10px rgba(40,20,5,.35)}
-  #sheet.tuck .frame{transform:translateY(calc(100% - 52px));transition-duration:.18s;transition-timing-function:ease-out}
+  #sheet.tuck .frame{transform:translateY(calc(100% - 26px));transition-duration:.18s;transition-timing-function:ease-out}
+  #sheet.tuck .frame:after{content:"拖回这里放回";position:absolute;left:50%;top:3px;transform:translateX(-50%);font:800 12px var(--round);color:#fff3d8;text-shadow:0 1px 2px rgba(40,20,5,.8);white-space:nowrap;z-index:6;pointer-events:none}
   body.boxdrag #dragTip{display:none}
   body.boxdrag #placebar{transform:translate(-50%,160%)!important}
   .detail{display:flex;gap:12px;align-items:center;margin-top:12px}

@@ -548,7 +548,7 @@ function placeDown(e) {
 function placeMove(e) {
   if (pinch.pts.has(e.pointerId)) pinch.pts.set(e.pointerId, [e.clientX, e.clientY]);
   if (pinch.pts.size >= 2) { placeZoom(pinch.dist0 * pinch.d0 / pinchD()); return; }
-  mode.px = e.clientX; mode.py = e.clientY;
+  mode.px = e.clientX; mode.py = e.clientY; if (mode.boxDrag && !mode.boxDrag.far && Math.hypot(e.clientX - mode.boxDrag.x0, e.clientY - mode.boxDrag.y0) > 14) mode.boxDrag.far = true;
   const g = groundAt(e.clientX + mode.off[0], e.clientY + mode.off[1]); if (!g) return; const R = Math.hypot(g[0], g[1]); const k = R > PLACE_R ? PLACE_R / R : 1; mode.x = g[0] * k; mode.z = g[1] * k; checkPlace(); }
 function placeUp(e) { pinch.pts.delete(e.pointerId); if (pinch.pts.size < 2) pinch.d0 = 0; mode.drag = false; mode.px = null; if (mode.boxDrag && e.pointerId === mode.boxDrag.id) boxDragEnd(e, e.type === 'pointercancel'); }
 // 从储物箱里按住拖出来（ui.js 判定按住/越过箱沿后调进来）：同一次按压直接进放置模式，3D 手、大视野、边缘滚动、金圈、绿红判定全部沿用；
@@ -556,15 +556,16 @@ function placeUp(e) { pinch.pts.delete(e.pointerId); if (pinch.pts.size < 2) pin
 function startPlaceDrag(k, e) {
   if (!info || !(info.lenia.box[k] > 0)) return false;
   startPlace(k); if (mode.kind !== 'place') return false;
-  const touch = e.pointerType !== 'mouse'; mode.boxDrag = { id: e.pointerId, item: k, touch };
+  const touch = e.pointerType !== 'mouse'; mode.boxDrag = { id: e.pointerId, item: k, touch, x0: e.clientX, y0: e.clientY, far: false };
   pinch.pts.clear(); if (e.pointerType === 'touch') pinch.pts.set(e.pointerId, [e.clientX, e.clientY]);
   try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 有的浏览器不支持就算了 */ }
   mode.drag = true; mode.off = [0, touch ? -32 : -18]; placeMove(e); return true;
 }
 function boxDragEnd(e, cancelled) {
-  if (!mode.boxDrag) return; mode.boxDrag = null;
+  if (!mode.boxDrag) return; const still = !mode.boxDrag.far; mode.boxDrag = null;
   const pt = e ? { x: e.clientX, y: e.clientY } : { x: mode.px == null ? innerWidth / 2 : mode.px, y: mode.py == null ? innerHeight / 2 : mode.py };
   const back = !cancelled && ui.boxPointIn(pt.x, pt.y); // 又拖回箱子上松手：算放回去
+  if (!cancelled && still && e) { endMode(); ui.boxDragBack(pt, '', true); return; } // 按住拿起后一动没动就松手：旧物回箱并选中看详情
   if (!cancelled && !back && mode.ok) { document.getElementById('placeOk').click(); ui.boxDragDone(); return; }
   const why = cancelled || back ? '' : `放不下：${mode.why}，旧物回箱啦`;
   endMode(); ui.boxDragBack(pt, why);
