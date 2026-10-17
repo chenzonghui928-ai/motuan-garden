@@ -542,6 +542,7 @@ export function writeChar(c, idx, t, dt, lo = false) {
   else if (act === A_.CHOP) { T[0] = T[2] = -0.9 + Math.sin(t * 4 + c.seed) * 0.2; T[4] = T[5] = sp.wings ? 0 : -0.4; }
   else if (act === A_.GATHER) { T[0] = -1.9 + Math.sin(t * 3 + c.seed) * 0.5; T[2] = -1.3 + Math.sin(t * 3 + c.seed + 2) * 0.5; T[4] = T[5] = sp.wings ? 0 : -0.5; }
   else if (act === A_.EAT) { T[0] = T[2] = -1.0; T[1] = 0.25; T[3] = -0.25; T[4] = T[5] = sp.wings ? 0 : -1.3; }
+  if ((c.flags & 128) && !(c.flags & 8)) { if (c.id % 3 === 0) { T[0] = T[2] = -1.25; T[1] = 0.12; T[3] = -0.12; T[4] = T[5] = sp.wings ? 0 : -0.25; } else { T[1] = sp.wings ? 0.9 + Math.sin(t * 8 + c.seed) * 0.4 : 2.3; T[3] = sp.wings ? -0.9 : -0.1; T[4] = sp.wings ? 0 : -0.35 + Math.sin(t * 8 + c.seed) * 0.35; } } // 坐在玩具车里：司机扶方向盘，乘客挥手
   if (c.carry > 0.05 && !sp.wings) { T[0] = T[2] = -0.62; T[1] = -0.32; T[3] = 0.32; T[4] = T[5] = -1.05; }
   else if (c.carry > 0.05) { T[1] = -0.35; T[3] = 0.35; T[0] = T[2] = -0.6; }
   if (c.water > 0.02) { T[2] = -1.0; T[3] = -0.05; T[5] = sp.wings ? 0 : -0.35; }

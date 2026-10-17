@@ -14,11 +14,11 @@ const leniaMini = () => `<span class="lbadge lmini">${leniaFace()}</span>`;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const CARD_TAG = { discover: ['发现', 'b'], haul: ['拖运', 'o'], home: ['新家', 'g'], shop: ['开店', 'o'], guest: ['店铺', 'o'], friend: ['朋友', 'r'], wish: ['心愿', 'r'], dream: ['托梦', 'b'], arrive: ['新邻居', 'g'], away: ['你不在时', ''], change: ['变化', 'g'], upgrade: ['翻新', 'g'], moment: ['日常', 'b'], lenia: ['旧物', 'o'], combo: ['组合惊喜', 'r'], twish: ['小镇愿望', 'g'], festival: ['节日', 'r'], season: ['换季', 'g'], weather: ['天气', 'b'], rescue: ['下雨天', 'b'], snowman: ['雪人', 'b'], trip: ['远行', 'o'], journey: ['游记', 'r'] };
+const CARD_TAG = { discover: ['发现', 'b'], haul: ['拖运', 'o'], home: ['新家', 'g'], shop: ['开店', 'o'], guest: ['店铺', 'o'], friend: ['朋友', 'r'], wish: ['心愿', 'r'], dream: ['托梦', 'b'], arrive: ['新邻居', 'g'], away: ['你不在时', ''], change: ['变化', 'g'], upgrade: ['翻新', 'g'], moment: ['日常', 'b'], lenia: ['旧物', 'o'], combo: ['组合惊喜', 'r'], twish: ['小镇愿望', 'g'], festival: ['节日', 'r'], season: ['换季', 'g'], weather: ['天气', 'b'], rescue: ['下雨天', 'b'], snowman: ['雪人', 'b'], trip: ['远行', 'o'], journey: ['游记', 'r'], clear: ['清理', 'g'] };
 const SPECIAL = new Set(['lenia', 'combo', 'twish', 'festival', 'season', 'journey', 'trip']);
 const DREAM_ST = { pending: ['等着去做', 'o'], done: ['达成', 'g'], blocked: ['受阻', 'r'], expired: ['过期', ''] };
-const MERGE = new Set(['wish', 'friend', 'moment', 'upgrade', 'away', 'rescue', 'snowman']);
-const mergeTitle = (type, n) => ({ wish: `今天有 ${n} 个心愿实现了`, friend: `今天有 ${n} 对新朋友`, moment: `今天的 ${n} 个小片段`, upgrade: `今天有 ${n} 栋房子换了新样子`, away: `你不在时的 ${n} 段小故事`, rescue: `雨天里 ${n} 次照看旧物`, snowman: `今天堆了 ${n} 个雪人` }[type] || `${n} 件事`);
+const MERGE = new Set(['wish', 'friend', 'moment', 'upgrade', 'away', 'rescue', 'snowman', 'clear']);
+const mergeTitle = (type, n) => ({ wish: `今天有 ${n} 个心愿实现了`, friend: `今天有 ${n} 对新朋友`, moment: `今天的 ${n} 个小片段`, upgrade: `今天有 ${n} 栋房子换了新样子`, away: `你不在时的 ${n} 段小故事`, rescue: `雨天里 ${n} 次照看旧物`, snowman: `今天堆了 ${n} 个雪人`, clear: `今天清了 ${n} 丛外圈的植物` }[type] || `${n} 件事`);
 const av = (sp, cls = '') => `<span class="av ${cls}">${icon('av:' + sp)}</span>`;
 const seeds = (p, n = 5) => `<span class="seeds">${Array.from({ length: n }, (_, i) => `<i class="seed ${p * n >= i + 0.5 ? 'on' : ''}"></i>`).join('')}</span>`;
 const itemIc = (k, cls = '') => icon('item:' + k, cls);
@@ -46,7 +46,7 @@ const comboOfCard = (c) => { const m = /「(.+?)」|：(.+?)！/.exec(c.title); 
 
 export function createUI(api) {
   const S = { openGroups: new Set(), mergedToast: null, info: null, cards: [], album: [], tab: 'town', view: null, boxTab: 'items', boxSel: null, atticSel: null, seedSel: 'daisy', albumSub: 'new', resId: null,
-    dreamRid: null, dreamTarget: null, seenCards: 0, giftShown: 0, toastIds: new Set(), toastMode: 'stack', lastCardId: 0, wishSeen: '', noticeT: -1, extra: [], trip: { item: null, rids: [], dest: 'picnic' }, letterShown: 0, giftHold: true, pendingGift: null };
+    dreamRid: null, dreamTarget: null, seenCards: 0, giftShown: 0, toastIds: new Set(), toastMode: 'stack', lastCardId: 0, wishSeen: '', noticeT: -1, extra: [], trip: { item: null, rids: [], dest: 'picnic' }, letterShown: 0, giftHold: true, pendingGift: null, rs: { sp: 'all', sort: 'doing', page: 0, order: null, loose: false, n: null }, resFrom: null };
   const sheet = $('sheet'), frame = $('sheetF'), body = $('sheetB');
   // ---------------------------------------------------------------- 打开 / 关闭
   function setTab(tab, view = null) {
@@ -56,7 +56,8 @@ export function createUI(api) {
     S.tab = tab; S.view = view || tab;
     if (tab === 'town') { if (wasOpen && sinceMs('drop') > 500 && sinceMs('reject') > 500) sfx('close'); } else if (!wasOpen) sfx('open'); else if (oldView !== S.view) sfx('page');
     for (const b of document.querySelectorAll('#toolbar .tool')) b.classList.toggle('on', b.dataset.tab === tab);
-    document.body.classList.toggle('nugtab', tab === 'nugget');
+    document.body.classList.toggle('nugtab', tab === 'nugget'); document.body.classList.toggle('roster-open', tab === 'roster');
+    if (tab === 'roster') { S.rs.order = null; if (oldView !== 'roster') S.rs.page = 0; }
     if (tab === 'town') { sheet.classList.remove('open'); document.body.classList.remove('sheet-open'); api.onSheet(false); }
     else { sheet.classList.add('open'); document.body.classList.add('sheet-open'); api.onSheet(true); render(true); }
     if (tab === 'album') { S.seenCards = S.cards.length ? S.cards[0].id : 0; updateDots(); }
@@ -64,13 +65,20 @@ export function createUI(api) {
   }
   const close = () => { api.select(null); setTab('town'); };
   $('toolbar').addEventListener('click', (e) => { const b = e.target.closest('.tool'); if (!b) return; if (b.dataset.tab === S.tab) return close(); setTab(b.dataset.tab); });
-  function openRes(id) { S.resId = id; api.select(id); setTab('res'); }
+  function openRes(id, from = null) { S.resId = id; S.resFrom = from; rosterSeen(id); api.select(id); setTab('res'); }
   function openSite(id) { S.siteId = id; S.siteMsg = ''; api.select(null); setTab('site'); }
   function openGate(i) { S.gateId = i; api.select(null); setTab('gate'); } // 点村口：这条路通往哪、最近谁出发回来、拖回了什么
   function openThing(id) { S.thingId = id; api.select(null); setTab('thing'); } // 小设施 / 摆设 / 桥 / 公共粮筐的小卡片
   document.body.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]'); if (!el) return; const a = el.dataset.act, v = el.dataset.v; const I = S.info;
     if (a === 'res') openRes(+v);
+    else if (a === 'rosterBadge') { if (S.view === 'roster' && sheet.classList.contains('open')) close(); else { S.resFrom = null; api.select(null); setTab('roster'); } }
+    else if (a === 'rosterSp') { S.rs.sp = S.rs.sp === v ? 'all' : v; S.rs.order = null; S.rs.page = 0; render(true); }
+    else if (a === 'rosterSort') { S.rs.sort = v; S.rs.order = null; S.rs.page = 0; render(true); }
+    else if (a === 'rosterOpen') openRes(+v, 'roster');
+    else if (a === 'rosterPage') { S.rs.page = Math.max(0, S.rs.page + (+v)); render(true); }
+    else if (a === 'rosterDense') { S.rs.loose = !S.rs.loose; render(); }
+    else if (a === 'rosterBack') { S.resFrom = null; api.select(null); setTab('roster'); }
     else if (a === 'close') close();
     else if (a === 'tab') setTab(v);
     else if (a === 'focus') { const [x, z] = v.split(',').map(Number); api.focus(x, z); if (innerWidth < 900) close(); }
@@ -93,8 +101,8 @@ export function createUI(api) {
     else if (a === 'thoughtX') hideThought();
     else if (a === 'thoughtFollow') { hideThought(); api.follow(+v); }
     else if (a === 'goAttic') { S.boxTab = 'attic'; setTab('box'); }
-    else if (a === 'spTab') { const r = I.res.find(r => r.sp === v); if (r) openRes(r.id); }
-    else if (a === 'resNav') { const list = I.res; const i = list.findIndex(r => r.id === S.resId); const r = list[(i + (+v) + list.length) % list.length]; if (r) openRes(r.id); }
+    else if (a === 'spTab') { const r = I.res.find(r => r.sp === v); if (r) openRes(r.id, S.resFrom); }
+    else if (a === 'resNav') { const list = I.res; const i = list.findIndex(r => r.id === S.resId); const r = list[(i + (+v) + list.length) % list.length]; if (r) openRes(r.id, S.resFrom); }
     else if (a === 'dreamFor') { S.dreamRid = +v; S.dreamTarget = null; setTab('dream'); }
     else if (a === 'drRes') { S.dreamRid = +v; render(); }
     else if (a === 'drTgt') { S.dreamTarget = v; render(); }
@@ -149,7 +157,7 @@ export function createUI(api) {
     const W = info.world; $('dayTag').innerHTML = W ? `<span>${W.sname}·第${W.sday}天</span> <span>${info.hm}</span>` : `<span>第${info.day}天</span> <span>${info.hm}</span>`;
     if (W) { const ic = $('wxIc'); const n = 'hud-weather-' + W.wx; if (ic.dataset.ic !== n) { ic.dataset.ic = n; hydrate(ic.parentElement); } ic.parentElement.title = `${W.sname}天 · ${W.wxName}`; }
     const T = info.trip; if (T) { const tl = T.letters.find(l => !l.seen); if (tl && S.letterShown !== tl.id && info.cards) { const c = info.cards.find(c => c.id === tl.id); if (c) { S.letterShown = tl.id; showLetter(c, true); api.send({ type: 'lenia', act: 'letter', id: tl.id }); } } $('tripDot').style.display = T.exp && T.exp.phase === 'back' ? 'block' : 'none'; }
-    heartTick(L.heart);
+    heartTick(L.heart); rosterTick(info.res.length);
     const sd = $('sillDot'); sd.style.display = L.sill.length ? 'block' : 'none'; sd.textContent = L.sill.length;
     renderJobs(); updateDots();
     if (info.gift && !info.gift.seen && S.giftShown !== info.gift.id) { if (S.giftHold) S.pendingGift = info.gift; else { S.giftShown = info.gift.id; showGift(info.gift); } } // 开场/引导/打招呼先说完，再给离开期间的信
@@ -196,10 +204,10 @@ export function createUI(api) {
   function render(top = false) {
     const I = S.info; if (!I) return; const sc = frame.querySelector('.scroll'); const st = sc ? sc.scrollTop : 0; let h = '';
     if (S.view === 'box') h = viewBox(I); else if (S.view === 'wish') h = viewWish(I); else if (S.view === 'res') { const r = I.res.find(r => r.id === S.resId); h = r ? viewRes(r, I) : '<div class="empty">找不到这位居民</div>'; }
-    else if (S.view === 'sill') h = viewSill(I); else if (S.view === 'album') h = viewAlbum(I); else if (S.view === 'dream') h = viewDream(I); else if (S.view === 'trip') h = viewTrip(I); else if (S.view === 'site') h = viewSite(I); else if (S.view === 'thing') h = viewThing(I); else if (S.view === 'heart') h = viewHeart(I); else if (S.view === 'gate') h = viewGate(I); else if (S.view === 'nugget') h = viewNugget(I);
+    else if (S.view === 'roster') h = viewRoster(I); else if (S.view === 'sill') h = viewSill(I); else if (S.view === 'album') h = viewAlbum(I); else if (S.view === 'dream') h = viewDream(I); else if (S.view === 'trip') h = viewTrip(I); else if (S.view === 'site') h = viewSite(I); else if (S.view === 'thing') h = viewThing(I); else if (S.view === 'heart') h = viewHeart(I); else if (S.view === 'gate') h = viewGate(I); else if (S.view === 'nugget') h = viewNugget(I);
     $('sheetT').textContent = S.view;
     dragTip.classList.toggle('on', S.view === 'box' && S.boxTab === 'items' && ITEM_KEYS.some(k => I.lenia.box[k] > 0));
-    if (body._h !== h) { body.innerHTML = h; body._h = h; hydrate(body); const s2 = frame.querySelector('.scroll'); if (s2) s2.scrollTop = top ? 0 : st; }
+    if (body._h !== h) { body.innerHTML = h; body._h = h; hydrate(body); const s2 = frame.querySelector('.scroll'); if (s2) { s2.scrollTop = top ? 0 : st; if (S.view === 'roster') rosterRange(s2); } }
   }
   const closeBtn = `<button class="enamel cream sm x2 press" data-act="close" title="关上">${icon('close')}</button>`;
   // 储物箱：打开的旧木箱，上盖挂名牌和三个椭圆标签，下面是木格
@@ -252,7 +260,7 @@ export function createUI(api) {
     const sps = SPECIES.filter(sp => I.res.some(x => x.sp === sp));
     const fr = r.friends.length ? r.friends.map(f => `<span class="chip r" data-act="res" data-v="${f.id}">${esc(f.name)}</span>`).join('') : '<span class="muted">还没有好朋友</span>';
     const mates = I.res.filter(x => x.sp === r.sp);
-    return `<div class="board"><div class="brassclip"></div>${closeBtn}<div class="sidetabs">${sps.map(sp => `<button class="${sp === r.sp ? 'on' : ''}" data-act="spTab" data-v="${sp}" title="${SP_NAME[sp]}">${av(sp)}</button>`).join('')}</div>
+    return `<div class="board"><div class="brassclip"></div>${closeBtn}${S.resFrom === 'roster' ? '<button class="woodbtn rback" data-act="rosterBack" aria-label="回到居民名册">‹ 名册</button>' : ''}<div class="sidetabs">${sps.map(sp => `<button class="${sp === r.sp ? 'on' : ''}" data-act="spTab" data-v="${sp}" title="${SP_NAME[sp]}">${av(sp)}</button>`).join('')}</div>
       <div class="sheet2 paper"><div class="scroll" style="max-height:calc(100vh - 230px)"><div class="photo">${av(r.sp)}<div class="grow"><h3 class="ttlf">${esc(r.name)}</h3><div class="muted">${SP_NAME[r.sp]} · ${mates.length > 1 ? `镇上有 ${mates.length} 只${SP_NAME[r.sp]}` : '镇上唯一的' + SP_NAME[r.sp]}</div><div class="chips">${r.traits.map(t => `<span class="chip o">${TRAITS[t]}</span>`).join('')}</div></div></div>
       <div class="needs"><span>饱腹</span>${seeds(r.full / 100)}<span>精力</span>${seeds(r.energy / 100)}<span>心情</span>${seeds(r.mood / 100)}</div>
       ${r.away || r.trip ? `<div class="chip o" style="margin-top:8px;white-space:normal">${icon('map', 'chipic')}${esc(r.doing)}</div>` : ''}
@@ -266,6 +274,82 @@ export function createUI(api) {
       ${r.away || r.trip ? '' : `<button class="woodbtn" style="margin-top:8px;width:100%" data-act="tripWith" data-v="${r.id}">${icon('map', 'chipic')} 邀请${esc(r.name)}去远行</button>`}</div>
       <div class="navrow"><button class="enamel cream sm press" data-act="resNav" data-v="-1" title="上一位">${icon('arrow-left')}</button><button class="woodbtn green" data-act="follow" data-v="${r.id}">跟着看看</button><button class="woodbtn" data-act="dreamFor" data-v="${r.id}">托个梦</button><button class="enamel cream sm press" data-act="resNav" data-v="1" title="下一位">${icon('arrow-right')}</button></div></div></div>`;
   }
+
+  // ---------------------------------------------------------------- 居民名册（顶部人数小牌 + 名册面板）
+  const SEEN_KEY = 'lenia-roster-seen';
+  const seenSet = (() => { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch (e) { return new Set(); } })();
+  function rosterSeen(id) { if (seenSet.has(id)) return; seenSet.add(id); try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seenSet])); } catch (e) { /* 存不了也不影响 */ } }
+  const reduceMotion = () => matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function rosterTick(n) { // 人数小牌：数字变化时轻轻一跳（+1）/ 一沉（-1）；减少动态效果时只换数字
+    const badge = $('rosterBtn'); if (!badge) return; const prev = S.rs.n; S.rs.n = n;
+    $('rosterN').textContent = n > 999 ? '999+' : n; badge.setAttribute('aria-label', `居民 ${n} 位，打开居民名册`);
+    if (prev == null || prev === n) return;
+    $('rosterLive').textContent = n > prev ? '新邻居来了' : '一位邻居搬走了';
+    if (reduceMotion()) return;
+    const d = n - prev; badge.classList.remove('up', 'down'); void badge.offsetWidth; badge.classList.add(d > 0 ? 'up' : 'down');
+    const f = document.createElement('i'); f.className = 'rfly ' + (d > 0 ? 'up' : 'down'); f.textContent = (d > 0 ? '+' : '−') + Math.abs(d); badge.appendChild(f);
+    setTimeout(() => { f.remove(); badge.classList.remove('up', 'down'); }, 700);
+  }
+  const ACT_ORDER = ['进食', '照料', '制作', '休息', '散步', '其他', '远行'];
+  const ACT_IC = { 进食: 'basket', 照料: 'watering-can', 制作: 'box', 休息: 'moon', 散步: 'seedbag', 其他: 'star', 远行: 'map' };
+  const actOf = (r) => { if (r.away || r.trip) return '远行'; const d = r.doing || '';
+    if (/吃|饱|面包|莓|蘑菇|菜|喝|点心/.test(d)) return '进食'; if (/浇|照料|种|打理|看顾|照看|雨|施肥/.test(d)) return '照料';
+    if (/做|烤|修|盖|建|拖|改造|搬|钓|摘|收|装|造|整理|帮忙|缝/.test(d)) return '制作'; if (/睡|休息|歇|醒|躺|床|打盹/.test(d)) return '休息';
+    if (/散步|转转|逛|晒|聊|广场|玩|走|看/.test(d)) return '散步'; return '其他'; };
+  const isAway = (r) => !!(r.away || r.trip);
+  const isNew = (r, I) => r.arr > 0 && I.day - r.arr <= 3 && !seenSet.has(r.id);
+  const zh = new Intl.Collator('zh-Hans-CN-u-co-pinyin');
+  const cmpName = (a, b) => zh.compare(a.name, b.name) || a.id - b.id;
+  function rosterOrder(I) {
+    const R = S.rs; const ids = new Set(I.res.map(r => r.id));
+    if (!R.order) {
+      const by = R.sort === 'home' ? (a, b) => zh.compare(a.home, b.home) || cmpName(a, b) : R.sort === 'name' ? cmpName : (a, b) => (ACT_ORDER.indexOf(actOf(a)) - ACT_ORDER.indexOf(actOf(b))) || cmpName(a, b);
+      R.order = I.res.slice().sort(by).map(r => r.id);
+    }
+    R.order = R.order.filter(id => ids.has(id)); for (const r of I.res) if (!R.order.includes(r.id)) R.order.push(r.id); // 新来的排到最后，不挤动正在看的行
+    return R.order;
+  }
+  const pips = (n, kind, label) => `<span class="pips ${kind}" role="img" aria-label="${label}${n}/5">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+  const bubbleMark = '<svg class="rbub" viewBox="0 0 24 20" role="img" aria-label="头顶有气泡"><path d="M12 1.5C6 1.5 1.5 5 1.5 9.2c0 2.3 1.2 4.2 3.2 5.5L3.6 18.5l4.2-2.2c1.3.4 2.8.6 4.2.6 6 0 10.5-3.5 10.5-7.7S18 1.5 12 1.5z" fill="#fffaf0" stroke="#7a5420" stroke-width="1.5"/><g fill="#7a5420"><circle cx="7.5" cy="9.2" r="1.3"/><circle cx="12" cy="9.2" r="1.3"/><circle cx="16.5" cy="9.2" r="1.3"/></g></svg>';
+  function homeKey(r) { return r.homeCombo ? 'combo_' + r.homeCombo : BACK[r.homeKind] || (r.homeKind && ITEMS[r.homeKind] ? r.homeKind : null); }
+  function rosterRow(r, I, dense) {
+    const away = isAway(r), cat = actOf(r), nw = isNew(r, I), hk = homeKey(r);
+    const trs = r.traits.slice(0, dense ? 1 : 2).map(t => `<i class="rtr">${esc(TRAITS[t])}</i>`).join('');
+    const st = away ? `<span class="rst away"><span class="rnone">— — —</span><span class="rnone">— — —</span></span>`
+      : `<span class="rst"><span class="rl"><em>饱腹</em>${pips(Math.round(r.full / 20), 'leaf', '饱腹')}</span><span class="rl"><em>心情</em>${pips(Math.round(r.mood / 20), 'heart', '心情')}</span></span>`;
+    return `<button class="rrow${away ? ' away' : ''}${dense ? ' dense' : ''}" data-act="rosterOpen" data-v="${r.id}" aria-label="${esc(r.name)}，${SP_NAME[r.sp]}，${away ? '出远门了' : esc(r.doing || '')}，打开名片">
+      <span class="rav">${av(r.sp)}${r.bub && !away ? bubbleMark : ''}</span>
+      <span class="rmain"><span class="rname"><b>${esc(r.name)}</b><i class="rsp">${SP_NAME[r.sp]}</i>${trs}${nw ? '<i class="rnew">新邻居</i>' : ''}</span>
+      <span class="rdo">${icon(ACT_IC[cat], 'rdic')}<span>${away ? '出远门了' : esc(r.doing || '在附近转转')}</span></span>
+      <span class="rhome">${hk ? itemIc(hk, 'rhic') : icon('hud-home', 'rhic')}<span>住在 ${esc(r.home)}</span></span></span>${st}</button>`;
+  }
+  const wide = () => matchMedia('(min-width:900px)').matches;
+  function viewRoster(I) {
+    const R = S.rs, N = I.res.length, away = I.res.filter(isAway).length;
+    const ord = rosterOrder(I); const byId = new Map(I.res.map(r => [r.id, r]));
+    const all = ord.map(id => byId.get(id)).filter(r => R.sp === 'all' || r.sp === R.sp);
+    const w = wide(), PER = 8; const pages = Math.max(1, Math.ceil(all.length / PER)); if (R.page >= pages) R.page = pages - 1;
+    const dense = !w && N >= 30 && !R.loose; const shown = w ? all.slice(R.page * PER, R.page * PER + PER) : all;
+    const cnt = (sp) => I.res.filter(r => r.sp === sp).length;
+    const tab = (sp, label, n, ic) => `<button class="rtab${R.sp === sp ? ' on' : ''}" data-sp="${sp}" data-act="rosterSp" data-v="${sp}" aria-pressed="${R.sp === sp}"><span class="rtic">${ic}</span><span class="rtt"><b>${label}</b><u>${n}</u></span></button>`;
+    const filt = `<div class="rfilt"><button class="rtab all${R.sp === 'all' ? ' on' : ''}" data-act="rosterSp" data-v="all" aria-pressed="${R.sp === 'all'}"><b>全部</b><u>${N}</u></button>${SPECIES.map(sp => tab(sp, SP_NAME[sp], cnt(sp), av(sp))).join('')}</div>`;
+    const sorts = [['doing', '在做什么'], ['home', '住哪'], ['name', '名字']];
+    const sort = `<div class="rsort" role="group" aria-label="排序">${sorts.map(([k, n]) => `<button class="${R.sort === k ? 'on' : ''}" data-act="rosterSort" data-v="${k}" aria-pressed="${R.sort === k}">${n}</button>`).join('')}</div>`;
+    const list = shown.length ? shown.map(r => rosterRow(r, I, dense)).join('') : `<div class="rempty">${N ? '还没有这类邻居' : '花园还在等第一位邻居'}<br><button class="woodbtn" data-act="rosterSp" data-v="all">看全部居民</button></div>`;
+    const foot = w ? `<div class="rfoot"><span>点击居民，打开名片</span><span class="rpg"><button class="woodbtn" data-act="rosterPage" data-v="-1" ${R.page ? '' : 'disabled'} aria-label="上一页">‹</button><b>${all.length ? `${R.page * PER + 1} - ${Math.min(all.length, R.page * PER + PER)} / ${all.length}` : '0 / 0'}</b><button class="woodbtn" data-act="rosterPage" data-v="1" ${R.page < pages - 1 ? '' : 'disabled'} aria-label="下一页">›</button></span></div>`
+      : `<div class="rfoot"><span id="rRange">点击居民，打开名片 · 共 ${all.length} 位</span>${N >= 30 ? `<button class="woodbtn" data-act="rosterDense">${dense ? '舒展' : '紧凑'}</button>` : ''}</div>`;
+    return `<div class="rost${w ? ' desk' : ''}${dense ? ' dense' : ''}" role="dialog" aria-label="花园居民名册"><button class="enamel cream sm x2 press rx" data-act="close" title="关上" aria-label="关闭名册">${icon('close')}</button>
+      <div class="rhead"><h2 class="ttlf">花园居民 ${N} 位</h2><div class="rsub">在家 ${N - away} · 远行 ${away}</div></div>${w ? `<div class="rbar">${filt}${sort}</div>` : `${filt}${sort}`}
+      <div class="rbody"><div class="rlist scroll${w ? ' two' : ''}" data-n="${shown.length}">${list}</div></div>${foot}</div>`;
+  }
+  function rosterRange(sc) { // 手机长列表：底部写“显示 起 - 止 / 总数”
+    const el = $('rRange'); if (!el || !sc || sc.classList.contains('two')) return; const rows = sc.querySelectorAll('.rrow'); if (!rows.length) return;
+    const t = sc.getBoundingClientRect(); let a = 0, b = 0; rows.forEach((r, i) => { const q = r.getBoundingClientRect(); if (q.bottom > t.top + 8 && !a) a = i + 1; if (q.top < t.bottom - 8) b = i + 1; });
+    el.textContent = rows.length > 6 ? `显示 ${a || 1} - ${b || rows.length} / ${rows.length} · 向上滑动继续查看` : `点击居民，打开名片 · 共 ${rows.length} 位`;
+  }
+  body.addEventListener('scroll', (e) => { if (e.target.classList && e.target.classList.contains('rlist')) rosterRange(e.target); }, true);
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.view === 'roster' && sheet.classList.contains('open')) { close(); const b = $('rosterBtn'); if (b) b.focus(); } });
+  matchMedia('(min-width:900px)').addEventListener('change', () => { if (S.view === 'roster') render(true); });
   // 窗台回礼：窗户（透出小镇）+ 窗台木板上的回礼
   function viewSill(I) {
     const L = I.lenia; const g = L.sill;

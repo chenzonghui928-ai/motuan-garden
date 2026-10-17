@@ -3,6 +3,7 @@
 import { TEAM, CAP, KIND_DEFAULT, OBJ_NAME, SHOP, STREAM, streamDist, segDist, WORLD_R, PLAZA_R, EDGE_R } from './layout.js';
 import { footOf, circleFoot, prepFit, fitCheck, bodyGap, COMBO_GAP } from './footprint.js';
 import { propR, propH, comboR, comboH } from './scale.js';
+import { floraHits, floraWhy } from './flora.js';
 
 // 房子造型（程序化模板）对应的旧物；其余旧物由 render/props.js 画
 export const TEMPLATE_OF = { teapot: 'tea', boot: 'rboot', fishtin: 'fish', teacup: 'cup', honeyjar: 'honey', eggshell: 'egg' };
@@ -133,7 +134,7 @@ export const FAC = {
   lamp: { name: '灯', verb: '借着灯光坐了一会儿', fx: '夜里在附近走的小家伙心情更好' },
   garden: { name: '花园', verb: '闻了闻花', fx: '附近的花长得快一半，落成时还开出一圈花' },
   school: { name: '学堂', verb: '听了一段故事', fx: '在这儿听故事的小家伙会成为朋友，全镇交朋友更快' },
-  train: { name: '货运', verb: '推着车跑了一圈', fx: '拖大物件走得更快' },
+  train: { name: '货运', verb: '围着玩具车转了转', fx: '玩具车会真的开：载小伙伴兜风，还能把远处的旧物拖回镇上，比走路快得多' },
   pond: { name: '池塘', verb: '蹲在池塘边看水黾划水', fx: '鸭子和小鸡最喜欢来这儿玩水' },
   boat: { name: '小船', verb: '划着小船在水洼里转了一圈', fx: '大家轮流划船，划完心情很好' },
 };
@@ -247,7 +248,7 @@ export function goldRings(item, r, st) {
 export function goldAt(item, r, st, x, z) { return goldRings(item, r, st).find(g => Math.hypot(x - g.x, z - g.z) <= g.r) || null; }
 export function placeCheck(x, z, r, st, kind = 'item', cand = null) {
   const gold = cand && cand.item ? goldAt(cand.item, r, st, x, z) : null;
-  if (gold) return { ok: true, why: '放进金圈会有惊喜', gold };
+  if (gold) return withFlora({ ok: true, why: '放进金圈会有惊喜', gold }, st, circleFoot(gold.x, gold.z, r, 0.3));
   const sd = streamDist(x, z);
   const g0 = groundCheck(x, z, st, kind); if (g0) return g0;
   if (kind === 'flower') for (const f of st.flowers || []) if (Math.hypot(x - f[0], z - f[1]) < 0.9) return { ok: false, why: '这里已经种了花' };
@@ -257,9 +258,16 @@ export function placeCheck(x, z, r, st, kind = 'item', cand = null) {
   const F = cand && cand.item && ITEMS[cand.item] ? footOf({ id: -1, kind: renderKindOf(cand.item), item: cand.item, x, z, rot: cand.rot || 0, r, stage: 'landed', done: false, pond: pd ? Math.max(pd[2], r + 0.6) : 0 }) : circleFoot(x, z, r, kind === 'flower' ? 0.05 : 0.3);
   const fc = fitCheck(F, ctx, kind === 'flower' ? { flower: true } : { water: 2.4, plaza: 0.6, rsc: 0.6, road: 0.3 });
   if (!fc.ok) return fc;
-  if (pd) return { ok: true, why: '放进水洼里，也许会变成小池塘、小船或码头', puddle: pd[3] };
-  if (Math.hypot(x, z) > TOWN_R) return { ok: true, why: '有点远，它们要拖好一阵子', far: true };
-  return { ok: true, why: sd < 9 ? '溪边，可能会有水边的用法' : '可以放在这里' };
+  const FR = kind === 'flower' ? null : F; // 花种不用清植物
+  if (pd) return withFlora({ ok: true, why: '放进水洼里，也许会变成小池塘、小船或码头', puddle: pd[3] }, st, FR);
+  if (Math.hypot(x, z) > TOWN_R) return withFlora({ ok: true, why: '有点远，它们要拖好一阵子', far: true }, st, FR);
+  return withFlora({ ok: true, why: sd < 9 ? '溪边，可能会有水边的用法' : '可以放在这里' }, st, FR);
+}
+// 长着植物的空地也能放：除了植物以外都合格，就是“可以放，但小动物要先把植物清掉”（clear = 要清的植物编号，warn = 提示用琥珀色）
+function withFlora(res, st, F) {
+  const hits = F ? floraHits(st, F) : [];
+  if (hits.length) { res.clear = hits.map(q => q[0]); res.warn = true; res.why = floraWhy(hits); }
+  return res;
 }
 
 // ---------------------------------------------------------------- 挪一挪 / 搬家：已经放下的东西换个地方（主线程绿红 + Worker 落地用同一个判定）
@@ -281,5 +289,5 @@ export function moveCheck(l, x, z, rot, st) {
   const ctx = st.fit || (st.fit = prepFit(st));
   const fc = fitCheck(footOf({ ...l, x, z, rot }), ctx, { ignore: new Set([l.id]), skipNode: l.node >= 0 ? l.node : null, water: 2.4, plaza: 0.6, rsc: 0.6, road: 0.3 });
   if (!fc.ok) return fc;
-  return { ok: true, why: l.done ? '搬到这里吧' : Math.hypot(x, z) > TOWN_R ? '有点远，它们要拖好一阵子' : '挪到这里吧' };
+  return withFlora({ ok: true, why: l.done ? '搬到这里吧' : Math.hypot(x, z) > TOWN_R ? '有点远，它们要拖好一阵子' : '挪到这里吧' }, st, footOf({ ...l, x, z, rot }));
 }

@@ -12,15 +12,19 @@ import { FOODISH, FAC, ITEMS, MAX_SILL, streamSide, PLACE_R } from '../shared/it
 import { footOf, localFoot, prepFit, fitCheck, segShape, overlapPairs } from '../shared/footprint.js';
 import { installLenia, EMO } from './lenia.js';
 import { installSeasons } from './seasons.js';
+import { installCars, CAR_V } from './cars.js';
+import { installFlora } from './flora.js';
+import { FLORA } from '../shared/flora.js';
 
 export const ACT = { IDLE: 0, WALK: 1, GATHER: 2, FISH: 3, FARM: 4, EAT: 5, SLEEP: 6, CHAT: 7, BUILD: 8, INSIDE: 9, HAUL: 10, CHOP: 11 };
-export const FLAG = { CARRY: 1, HIDDEN: 2, HAPPY: 4, PULL: 8, EMOTE: 64 };
+export const FLAG = { CARRY: 1, HIDDEN: 2, HAPPY: 4, PULL: 8, EMOTE: 64, RIDE: 128 }; // RIDE：坐在玩具车里（画面上抬高一点）
 export const SNAP_STRIDE = 7; // id, sp, x, z, yaw, act, flags
-export const SAVE_VERSION = 10; // 10：统一尺寸（旧物 / 组合 / 雨靴屋等占地半径变了，读档时按新半径重算门口并把互相插进去的东西挪开，保留已有进度）； 9：粮筐按品种分开存（旧档的总数按 3:4:3 拆成莓果/菜/鱼，面包从零开始），店里有自己的面包库存； 8：配方（远行带回的搭配配方，旧档由已拼出过的组合 + 茶壶毛线球补齐）； 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上）
+export const SAVE_VERSION = 12; // 12：玩具车与外圈植物两项合并（11 版档可能缺其中一项，读档时分别补齐）；11：玩具车（货运站配一辆会跑的车，存档里记着位置朝向；旧档里已有的玩具车货运站自动配一辆停在站里的车）； 10：统一尺寸（旧物 / 组合 / 雨靴屋等占地半径变了，读档时按新半径重算门口并把互相插进去的东西挪开，保留已有进度）； 9：粮筐按品种分开存（旧档的总数按 3:4:3 拆成莓果/菜/鱼，面包从零开始），店里有自己的面包库存； 8：配方（远行带回的搭配配方，旧档由已拼出过的组合 + 茶壶毛线球补齐）； 5：天气、季节、节日、远行；6：统一占地规则（旧的 3～5 版读档时把互相插进去的东西挪开）；7：「梦的力气」并进「心意」（旧档的力气余额加到心意上） ；另一份 11：外圈植物进模拟（每丛有完好 / 正在被清 / 已清掉 / 正在长回来的状态，旧档植物全部完好）
 const HUNGRY_AT = 32; // 饱腹低于这个数就会头顶冒“饿了”
 const STORE_FULL = 20; // 粮筐里每种食物堆到这么多就不再专门去采
 const BAKE_T = 45; // 一炉面包要烤多久（模拟秒）
 const FRIEND = 30, FRIEND_MEETS = 5, DREAM_COST = 3, MAX_WISHES = 8, MAX_CARDS = 40, MAX_ALBUM = 240;
+const NO_CARS = []; // 没有车时快照里共用同一个空数组
 const LOW_JOBS = new Set(['wander', 'plaza', 'visit', 'wait', 'arrive']);
 
 export class Sim {
@@ -29,7 +33,7 @@ export class Sim {
     if (opts.kinds) for (const k in opts.kinds) if (this.K[k]) this.K[k] = opts.kinds[k];
     this.log = []; this.gateLog = []; // gateLog：每个村口发生过的真事（远行出发/回来、拖回的旧物、门外新出现的东西），最多留 40 条
     if (opts.save) {
-      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, 7, 8, 9, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
+      try { const S = typeof opts.save === 'string' ? JSON.parse(opts.save) : opts.save; if (![3, 4, 5, 6, 7, 8, 9, 10, 11, SAVE_VERSION].includes(S.v)) throw new Error('old save'); this._now = opts.now || 0; this.load(S); this.fixOverlaps(S.v); if (opts.now) this.makeGift(opts.now); return; }
       catch (e) { this.log.push('存档读取失败，重新开局'); this.loadError = String(e && e.message || e); }
     }
     this.fresh(opts.seed ?? 1015);
@@ -51,7 +55,7 @@ export class Sim {
     this.spawnFar(this.pick(['egg', 'cup', 'honey']));
     const cur = this.res.find(r => r.traits.includes('curious') || r.traits.includes('brave')) || this.res[2];
     this.giveWish(cur, 'find');
-    this.notices = []; this.leniaFresh(); this.seasonFresh();
+    this.notices = []; this.leniaFresh(); this.seasonFresh(); this.carsFresh(); this.floraFresh();
   }
   rng() { let a = this.rs = (this.rs + 0x6D2B79F5) | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
   rnd(a, b) { return a + (b - a) * this.rng(); }
@@ -276,7 +280,7 @@ export class Sim {
     return { id: lot.id, kind: lot.kind, lot: lot.id, stage: 'gather', path, cum, s: 0, team: [], need: TEAM[lot.kind], x: path[0][0], z: path[0][1], yaw: lot.rot, moving: 0, rest: 0, restCD: this.rnd(14, 24), workers: 0, fetchers: 0, t0: this.t, nightNote: false };
   }
   joinHaul(r, p) { if (p.team.includes(r.id)) return; this.finishTask(r); p.team.push(r.id); r.haul = p.id; r.job = 'haul'; r.act = ACT.WALK; r.doing = `去远方帮忙拖${OBJ_NAME[p.kind]}`; }
-  leaveHaul(r, why) { const p = this.projects.find(p => p.id === r.haul); if (p) p.team = p.team.filter(id => id !== r.id); r.haul = null; this.finishTask(r); if (why) { r.doing = why; this.remember(r, why); } }
+  leaveHaul(r, why) { const p = this.projects.find(p => p.id === r.haul); if (p) p.team = p.team.filter(id => id !== r.id); if (r.ride) { const c = this.carById(r.ride); if (c) this.carUnboard(r, c); r.ride = 0; } r.haul = null; this.finishTask(r); if (why) { r.doing = why; this.remember(r, why); } }
   pathAt(p, s) { const { path, cum } = p; if (path.length < 2) return [path[0][0], path[0][1], p.yaw || 0]; s = clamp(s, 0, cum[cum.length - 1]); let i = 1; while (i < cum.length - 1 && cum[i] < s) i++; const a = path[i - 1], b = path[i]; const L = cum[i] - cum[i - 1] || 1; const u = (s - cum[i - 1]) / L; return [lerp(a[0], b[0], u), lerp(a[1], b[1], u), Math.atan2(b[0] - a[0], b[1] - a[1])]; }
   haulSlot(p, k) { // 队员位置：物件前方成两列排开
     const K = this.K[p.kind]; const row = Math.floor(k / 2), side = k % 2 ? 1 : -1;
@@ -312,20 +316,24 @@ export class Sim {
       p.team = p.team.filter(id => { const r = this.rById(id); return r && r.haul === p.id; });
       if (isNight(this.dayT())) { // 天黑：大家把物件留在原地，明天再来
         if (p.team.length) { for (const r of p.team.map(id => this.rById(id))) this.leaveHaul(r, `天黑了，把${OBJ_NAME[p.kind]}留在半路，明天再来`); if (!p.nightNote && p.s > 1) { p.nightNote = true; this.log.push(`天黑了，大家把${OBJ_NAME[p.kind]}留在了半路`); } }
-        p.stage = 'gather'; p.moving = 0; return;
+        if (p.car) this.carAbort(p, '天黑了，空车开回车位'); p.stage = 'gather'; p.moving = 0; return;
       }
     }
     if (p.stage === 'gather') {
       p.moving = 0;
       if (p.team.length >= p.need) {
         let ready = true; p.team.forEach((id, k) => { const r = this.rById(id); const [sx, sz] = this.haulSlot(p, k); if (Math.hypot(r.x - sx, r.z - sz) > 1.6) ready = false; });
-        if (ready) { p.stage = 'haul'; this.log.push(`${p.team.length} 人套好绳子，开始拖${OBJ_NAME[p.kind]}`); for (const id of p.team) this.rById(id).doing = `正在拖${OBJ_NAME[p.kind]}回镇上`; }
+        if (ready && !this.carReady(p, dt)) ready = false;
+        if (ready) { p.stage = 'haul'; if (p.car) this.carHook(p); this.log.push(`${p.team.length} 人套好绳子，开始拖${OBJ_NAME[p.kind]}${p.car ? '（挂在玩具车后面）' : ''}`); for (const id of p.team) this.rById(id).doing = `正在拖${OBJ_NAME[p.kind]}回镇上`; }
       }
     } else if (p.stage === 'haul') {
       const total = p.cum[p.cum.length - 1];
-      if (p.team.length < Math.ceil(p.need * 0.6)) { p.stage = 'gather'; p.moving = 0; return; }
-      if (p.rest > 0) { p.rest -= dt; p.moving = 0; }
-      else { p.restCD -= dt; if (p.restCD <= 0) { p.rest = this.rnd(3, 6); p.restCD = this.rnd(16, 28); } p.moving = 1; const v = 0.8 * Math.min(1, p.team.length / p.need) * (this.hasFac('train') ? 1.35 : 1); p.s = Math.min(total, p.s + v * dt); }
+      if (p.team.length < Math.ceil(p.need * 0.6)) { if (p.car) this.carUnhook(p); p.stage = 'gather'; p.moving = 0; return; }
+      const car = p.car ? this.carById(p.car) : null;
+      if (car && car.st === 'tow' && total - p.s <= this.carAhead(p) + 1.2) { this.carDone(p); } // 快到门口了：车靠边，大家解下绳子最后几步自己推进去，免得车压进房子的占地
+      if (car && p.car && car.st === 'tow') { p.moving = 1; const v = CAR_V.tow * (0.75 + 0.25 * Math.min(1, p.team.length / p.need)) * (car.broke > 0 ? 0.3 : 1); p.s = Math.min(total, p.s + v * dt); } // 车拖着走：不用歇脚，比徒手（0.8）快得多
+      else if (p.rest > 0) { p.rest -= dt; p.moving = 0; }
+      else { p.restCD -= dt; if (p.restCD <= 0) { p.rest = this.rnd(3, 6); p.restCD = this.rnd(16, 28); } p.moving = 1; const v = 0.8 * Math.min(1, p.team.length / p.need); p.s = Math.min(total, p.s + v * dt); }
       const [x, z, yaw] = this.pathAt(p, p.s); p.x = x; p.z = z; if (p.moving) p.yaw += Math.atan2(Math.sin(yaw - p.yaw), Math.cos(yaw - p.yaw)) * Math.min(1, dt * 0.8);
       if (p.s >= total - 0.01) this.arrive(p, lot);
     } else if (p.stage === 'renovate') {
@@ -334,6 +342,7 @@ export class Sim {
     }
   }
   arrive(p, lot) {
+    if (p.car) this.carDone(p);
     if (lot.upTo) { // 翻新：拖到要升级的房子门口，拆开用掉
       const T = this.lotById(lot.upTo); const team = p.team.map(id => this.rById(id)).filter(Boolean);
       for (const r of team) { r.haul = null; r.mood = Math.min(100, r.mood + 10); r.hauled++; this.finishTask(r); this.remember(r, `把${OBJ_NAME[p.kind]}拖回来给${T ? T.name : '小镇'}翻新`); this.wishHit(r, 'haul'); }
@@ -342,6 +351,7 @@ export class Sim {
       const c = this.cat[lot.kind] || (this.cat[lot.kind] = { n: 1, day: this.day(), uses: [] }); if (!c.uses.includes('翻新材料')) c.uses.push('翻新材料');
       if (T) this.tierUp(T, 'haul', team, p.kind); return;
     }
+    if (this.floraBlocks(lot)) { p.stage = 'gather'; p.moving = 0; return; } // 落点长着植物：大家先在旁边等，小动物把它清掉才能放下
     p.stage = 'renovate'; p.moving = 0; lot.stage = 'renovate'; p.x = lot.x; p.z = lot.z;
     const team = p.team.map(id => this.rById(id)).filter(Boolean);
     for (const r of team) { r.haul = null; r.mood = Math.min(100, r.mood + 10); r.hauled++; this.finishTask(r); this.remember(r, `和大家把${OBJ_NAME[p.kind]}拖回了镇上`); this.wishHit(r, 'haul'); }
@@ -445,7 +455,8 @@ export class Sim {
     opts.push(['social', (100 - r.mood) / 100 * 1.0 + 0.15 + (this.has(r, 'chatty') ? 0.4 : 0) + (W === 'friend' ? 0.7 : 0)]);
     if (r.energy < 40 && home && home.done) opts.push(['nap', 1.0 + (this.has(r, 'easy') ? 0.3 : 0)]);
     opts.push(['wander', 0.3 + (this.has(r, 'easy') ? 0.3 : 0)]);
-    const facs = this.facs(); if (facs.length && dT < 0.85) opts.push(['fac', 0.35 + (100 - r.mood) / 180 + (this.has(r, 'curious') ? 0.15 : 0)]);
+    const facs = this.facs().filter(l => !(l.fac === 'train' && this.carOfLot(l.id))); if (facs.length && dT < 0.85) opts.push(['fac', 0.35 + (100 - r.mood) / 180 + (this.has(r, 'curious') ? 0.15 : 0)]);
+    if (this.cars.length && dT < 0.85 && r.full > 45 && r.energy > 30 && !r.dream && this.carFreeFor()) opts.push(['ride', 0.5 + (100 - r.mood) / 130 + (r.sp === 'dog' ? 0.3 : 0) + (this.has(r, 'curious') ? 0.2 : 0)]); // 想坐玩具车兜风
     this.weatherOpts(r, opts, home); // 下雨多躲在家里/店里，晴天多出门，下雪堆雪人
     let best = null; for (const [k, v] of opts) { const s = v + this.rng() * 0.45; if (!best || s > best[1]) best = [k, s]; }
     switch (best[0]) {
@@ -466,6 +477,8 @@ export class Sim {
         if (o) return this.setSteps(r, [this.go(o.x + this.rnd(-1.5, 1.5), o.z + this.rnd(-1.5, 1.5)), this.doo(ACT.IDLE, this.rnd(3, 6), null)], 'visit', `去找${o.name}聊天`);
         const a = this.rnd(0, TAU), rr = this.rnd(5.5, 9); return this.setSteps(r, [this.go(Math.cos(a) * rr, Math.sin(a) * rr), this.doo(ACT.IDLE, this.rnd(10, 20), null)], 'plaza', '在广场上晒太阳');
       }
+      case 'ride': { const c = this.carFreeFor(); if (c && this.carBoard(r, c)) return; } // 车被别人先坐走了：改成闲逛
+      // falls through
       default: {
         const n = this.nodes[Math.floor(this.rng() * this.nodes.length)];
         return this.setSteps(r, [this.go(n.x + this.rnd(-2, 2), n.z + this.rnd(-2, 2)), this.doo(ACT.IDLE, this.rnd(6, 14), 'stroll')], 'wander', '在小路上闲逛');
@@ -498,7 +511,9 @@ export class Sim {
   fetchMat(r, p) {
     const lot = this.lotById(p.lot); const miss = this.stageMissing(lot); if (!miss.length) return this.build(r, p);
     const m = this.pick(miss); let steps, where;
-    if (m === 'twig') { steps = [this.go(WOOD_POS[0] + this.rnd(-2.5, 2.5), WOOD_POS[1] + 3.6), this.doo(ACT.CHOP, 5, 'getMat', { mat: m, n: 2 })]; where = '木枝堆'; }
+    const pl = this.matPlant(m, lot, r); // 缺木枝 / 干草：有时干脆去外圈清一丛植物取材料（克制：一次一丛、每天有上限）
+    if (pl) { steps = this.matClearSteps(r, pl, lot); where = `外圈的${FLORA[pl.kind].big}那边（清一丛）`; }
+    else if (m === 'twig') { steps = [this.go(WOOD_POS[0] + this.rnd(-2.5, 2.5), WOOD_POS[1] + 3.6), this.doo(ACT.CHOP, 5, 'getMat', { mat: m, n: 2 })]; where = '木枝堆'; }
     else if (m === 'stone') { const s = STREAM[60 + Math.floor(this.rng() * 70)]; const l = Math.hypot(s[0], s[1]); steps = [this.go(s[0] - s[0] / l * 4.2, s[1] - s[1] / l * 4.2), this.doo(ACT.GATHER, 6, 'getMat', { mat: m, n: 1 + (this.rng() < 0.4 ? 1 : 0), face: [s[0], s[1]] })]; where = '溪边'; }
     else if (m === 'grass') { const a = this.rnd(0, TAU), rr = this.rnd(30, 44); steps = [this.go(Math.cos(a) * rr, Math.sin(a) * rr), this.doo(ACT.GATHER, 6, 'getMat', { mat: m, n: 2 })]; where = '草地'; }
     else { const g = this.pick(this.nodes.filter(n => n.k === 'gate')); const l = Math.hypot(g.x, g.z); const ox = g.x / l * (EDGE_R - 3) + this.rnd(-4, 4), oz = g.z / l * (EDGE_R - 3) + this.rnd(-4, 4); steps = [this.go(g.x, g.z), this.go(ox, oz), this.doo(ACT.GATHER, 8, 'getMat', { mat: m, n: 1, trinket: true })]; where = '人类花园的草坪'; }
@@ -624,6 +639,7 @@ export class Sim {
       }
       case 'facFun': { const l = this.lotById(st.lot); if (l && l.done && l.fac) this.facFun(r, l); break; }
       case 'stroll': this.pickup(r, streamDist(r.x, r.z) < 9 ? 'stone' : this.rng() < 0.5 ? 'twig' : 'grass', 0.12); break;
+      case 'clearPlant': return this.clearTick(r, st);
       case 'tripAway': return this.tripAway(r);
       case 'tripHome': { const e = this.exp; r.box = 0; if (e) r.tripHome = e.id; break; }
       case 'rescue': return this.rescueDone(r, st);
@@ -657,6 +673,7 @@ export class Sim {
       const f = r.fav; r.hungryCD = 45; this.emo(r, EMO.HUNGRY, 6, { k: 'hungry', a: FOODS[f].name, b: (this.store[f] || 0) >= 1 ? '' : FOODS[chooseFood(r.fav, this.store) || 'veg'].name });
     }
     if (r.chat) { r.chat.t -= dt; r.act = ACT.CHAT; if (r.chat.t <= 0) { r.act = r.chat.prev; r.chat = null; r.chatCD = this.rnd(25, 60); } return; }
+    if (r.ride) return this.stepRider(r, dt);
     if (r.haul) return this.stepHauler(r, dt);
     // 被打断：饿坏了 / 做太久
     if (r.full < 18 && !['eat', 'forage', 'sleep', 'camp', 'shop', 'trip', 'rescue'].includes(r.job) && r.steps.length) { this.interrupt(r, '肚子咕咕叫，先放下手里的事去吃饭'); return; }
@@ -674,6 +691,10 @@ export class Sim {
     if (st.fn === 'sleepHome' || st.fn === 'sleepCamp') { if (!isNight(this.dayT(), -r.late) && r.energy > 70) { r.si++; r.mood += (st.fn === 'sleepHome' ? 5 : -3) + (this.hasFac('bell') ? 3 : 0); /* 有钟：听着钟声起床，精神好 */ r.doing = '睡醒了，伸了个懒腰'; this.beginStep(r); } return; }
     if (st.fn === 'tend' && isNight(this.dayT())) { r.si++; this.beginStep(r); return; }
     r.timer -= dt; if (r.timer <= 0) { if (this.onDone(r, st)) return; r.si++; this.beginStep(r); }
+  }
+  stepRider(r, dt) { // 坐在玩具车里（位置由车带着走，见 cars.js）；坐车拖货时还要照顾饿和累
+    const c = this.carById(r.ride); if (!c) { r.ride = 0; if (!r.haul) this.finishTask(r); return; }
+    if (r.haul) { if (r.full < 10) { this.leaveHaul(r, '饿得拉不动了，先去吃点东西'); this.log.push(`${r.name}饿得受不了了，先回去吃点东西`); return; } if (r.energy < 6) { this.leaveHaul(r, '累坏了，回去歇一歇'); return; } }
   }
   stepHauler(r, dt) {
     const p = this.projects.find(p => p.id === r.haul); if (!p || (p.stage !== 'gather' && p.stage !== 'haul')) { r.haul = null; this.finishTask(r); return; }
@@ -724,9 +745,9 @@ export class Sim {
   }
   social() { // 每模拟秒一次：近邻聊天，聊天加好感
     const grid = new Map();
-    for (const r of this.res) { if (r.haul || r.chat || r.act === ACT.INSIDE || r.act === ACT.SLEEP) continue; const k = Math.floor(r.x / 3) * 4096 + Math.floor(r.z / 3); let a = grid.get(k); if (!a) grid.set(k, a = []); a.push(r); }
+    for (const r of this.res) { if (r.haul || r.ride || r.chat || r.act === ACT.INSIDE || r.act === ACT.SLEEP) continue; const k = Math.floor(r.x / 3) * 4096 + Math.floor(r.z / 3); let a = grid.get(k); if (!a) grid.set(k, a = []); a.push(r); }
     for (const r of this.res) {
-      if (r.chat || r.haul || r.chatCD > 0 || (r.act !== ACT.WALK && r.act !== ACT.IDLE) || r.job === 'sleep' || r.job === 'camp' || r.box || r.job === 'tend') continue;
+      if (r.chat || r.haul || r.ride || r.chatCD > 0 || (r.act !== ACT.WALK && r.act !== ACT.IDLE) || r.job === 'sleep' || r.job === 'camp' || r.box || r.job === 'tend') continue;
       const gx = Math.floor(r.x / 3), gz = Math.floor(r.z / 3);
       outer: for (let ix = -1; ix <= 1; ix++) for (let iz = -1; iz <= 1; iz++) {
         const a = grid.get((gx + ix) * 4096 + gz + iz); if (!a) continue;
@@ -753,7 +774,7 @@ export class Sim {
     const spFree = free.filter(l => l.usp && (cnt[l.usp] || 0) < 3).map(l => l.usp);
     const sp = spFree.length ? this.pick(spFree) : SPECIES.slice().sort((a, b) => (cnt[a] || 0) - (cnt[b] || 0) + this.rnd(-0.6, 0.6))[0];
     const g = this.pick(this.nodes.filter(n => n.k === 'gate')); const len = Math.hypot(g.x, g.z);
-    const r = this.spawn(sp, g.x / len * (EDGE_R - 2), g.z / len * (EDGE_R - 2)); r.box = 1; this.claimBed(r);
+    const r = this.spawn(sp, g.x / len * (EDGE_R - 2), g.z / len * (EDGE_R - 2)); r.box = 1; r.arr = this.day(); this.claimBed(r);
     const a = this.rnd(0, TAU); this.setSteps(r, [this.go(g.x, g.z), this.go(Math.cos(a) * 7.5, Math.sin(a) * 7.5), this.doo(ACT.IDLE, 3, 'unpack')], 'arrive', '背着行李搬来小镇');
     for (const o of this.res) if (o !== r) o.mood = Math.min(100, o.mood + 1.5);
     const h = this.lotById(r.home); this.stats.arrivals++;
@@ -813,7 +834,7 @@ export class Sim {
     if (!lot || !p) return { ok: false, msg: '这里没在施工' };
     const miss = this.siteMissing(lot); if (!miss.length) return { ok: false, msg: '材料都齐了，大家正在干活' };
     if (this.heart < DREAM_COST) return { ok: false, msg: `心意不够（要 ${DREAM_COST} 点），收下窗台上的回礼就有了` };
-    const cand = this.res.filter(r => !r.away && r.job !== 'trip' && !r.haul && !(r.dream && r.dream.status === 'pending'));
+    const cand = this.res.filter(r => !r.away && r.job !== 'trip' && !r.haul && !r.ride && !(r.dream && r.dream.status === 'pending'));
     if (!cand.length) return { ok: false, msg: '大家都在忙，一会儿再试' };
     const sc = (r) => (r.builtOn === lot.id ? -100 : 0) + (r.fetchP === p.id ? -50 : 0) + (lot.usp && r.sp === lot.usp ? -20 : 0) + (this.has(r, 'diligent') ? -8 : 0) + Math.hypot(r.x - lot.x, r.z - lot.z) * 0.4;
     const r = cand.sort((a, b) => sc(a) - sc(b))[0]; const m = miss[0];
@@ -889,6 +910,7 @@ export class Sim {
     this.t += dt; this.wall += dt * 1000; // wall：真实时间（毫秒），远行按它算；离线时由读档补上
     for (const r of this.res) this.stepRes(r, dt);
     for (const p of this.projects) this.stepProject(p, dt);
+    if (this.cars.length) this.stepCars(dt);
     if (this.projects.some(p => p.stage === 'done')) this.projects = this.projects.filter(p => p.stage !== 'done');
     this._sec = (this._sec || 0) + dt;
     if (this._sec >= 1) {
@@ -900,9 +922,9 @@ export class Sim {
         this.nextFar = this.t + DAY * Math.min(3.5, 0.9 + 0.3 * this.farN) * this.rnd(0.85, 1.15) * (full ? 1.15 : 1); // 远方拾得物降为次要来源
         if (far < 1 && busy < 3 && this.lots.length < 22 && this.spawnFar(this.chooseFarKind())) this.farN++;
       }
-      this.arrivals(); this.wishTick(); this.stepLenia(); this.stepWorld();
+      this.carSecond(); this.arrivals(); this.wishTick(); this.stepLenia(); this.stepWorld(); this.stepFlora();
       for (const r of this.res) if (r.emoT > 0) { r.emoT -= 1; if (r.emoT <= 0) { r.emo = 0; r.emoWhy = null; } }
-      for (const r of this.res) if (!r.haul && r.home >= 0 && !r.steps.length) this.moveHome(r);
+      for (const r of this.res) if (!r.haul && !r.ride && r.home >= 0 && !r.steps.length) this.moveHome(r);
       for (const l of this.lots) if (this.natural(l) && l.done && l.use === 'home' && !l.beds.length) { l.emptyT = (l.emptyT || 0) + 1; if (l.emptyT > DAY * 0.6 && this.lots.filter(o => o.use === 'home' && !this.natural(o)).length >= 4) { this.convertHut(l); break; } } else l.emptyT = 0;
       if (this.t >= this.tierT) { this.tierT = this.t + DAY * 0.05; this.tierTick(); }
       for (const r of this.res) if (r.dream && r.dream.status === 'pending' && this.t - r.dream.t0 > DAY) this.dreamEnd(r, 'expired', '一直没顾上去');
@@ -916,7 +938,7 @@ export class Sim {
       if (r.box || (r.carry && r.job === 'gather' && r.act === ACT.WALK)) f |= FLAG.CARRY;
       if (r.act === ACT.INSIDE) f |= FLAG.HIDDEN;
       if (r.act === ACT.EAT || (r.mood > 80 && r.act === ACT.IDLE)) f |= FLAG.HAPPY;
-      if (r.haul) { const p = this.projects.find(p => p.id === r.haul); if (p && p.moving) f |= FLAG.PULL; }
+      if (r.ride) { const c = this.carById(r.ride); f |= c && c.broke > 0 ? FLAG.PULL : FLAG.RIDE | FLAG.HAPPY; } else if (r.haul) { const p = this.projects.find(p => p.id === r.haul); if (p && p.moving) f |= FLAG.PULL; }
       if (r.emote > 0) f |= FLAG.EMOTE;
       buf[o] = r.id; buf[o + 1] = SPECIES.indexOf(r.sp); buf[o + 2] = r.x; buf[o + 3] = r.z; buf[o + 4] = r.yaw; const hold = r.carryF && (r.act === ACT.EAT || (r.act === ACT.WALK && r.job === 'eat')) ? FOOD_IDS.indexOf(r.carryF) + 1 : 0; // 手里拿着的食物（画面上显示小模型）
       const bk = r.job === 'tend' && r.act === ACT.IDLE && r.si >= 1 && this.lots.some(l => l.owner === r.id && l.cook > 0); // 店主正在烤面包：画面上是干活的姿势
@@ -925,11 +947,11 @@ export class Sim {
     const proj = this.projects.map(p => { const lot = this.lotById(p.lot); const o = { id: p.id, kind: p.kind, stage: p.stage, x: p.x, z: p.z, yaw: p.yaw, moving: p.moving, team: p.team.slice(), need: p.need, prog: lot.prog, haulProg: p.cum ? p.s / p.cum[p.cum.length - 1] : 1, lot: p.lot };
       if (p.stage === 'renovate') { o.paid = lot.paid; o.miss = this.siteMissing(lot); o.pile = this.sitePile(lot); } return o; });
     const emo = []; for (const r of this.res) if (r.emo) emo.push(r.id, r.emo);
-    return { buf, proj, emo, wx: this.worldSnap(), t: this.t, dayT: this.dayT(), day: this.day(), store: storeSum(this.store), stores: FOOD_IDS.map(k => this.store[k]), bake: this.lots.filter(l => l.cook > 0).map(l => l.id), pop: n, houses: this.lots.filter(l => l.done).length, ver: this.ver, homeless: this.homeless().length, stock: this.rsc.map(s => s.stock / (s.max > 1e8 ? 1 : s.max)) };
+    return { buf, proj, cars: this.cars.length ? this.carSnap() : NO_CARS, emo, wx: this.worldSnap(), t: this.t, dayT: this.dayT(), day: this.day(), store: storeSum(this.store), stores: FOOD_IDS.map(k => this.store[k]), bake: this.lots.filter(l => l.cook > 0).map(l => l.id), pop: n, houses: this.lots.filter(l => l.done).length, ver: this.ver, homeless: this.homeless().length, stock: this.rsc.map(s => s.stock / (s.max > 1e8 ? 1 : s.max)), fl: this.floraSnap() };
   }
   rkind(l) { return l.use === 'shop' && ['tea', 'fish', 'cup', 'honey'].includes(l.kind) ? l.kind + 'S' : l.kind; }
   structure() {
-    return { ver: this.ver, lots: this.lots.map(l => ({ id: l.id, kind: l.kind, rk: this.rkind(l), tier: l.tier || 0, up: !!l.upTo, x: l.x, z: l.z, rot: l.rot, r: l.r, done: l.done, stage: l.stage, name: l.name, use: l.use, door: l.door, item: l.item || null, combo: l.combo || null, fac: l.fac || null, shop: l.shop || null, damp: l.damp ? Math.round(l.damp * 4) / 4 : 0, old: l.old ? 1 : 0, cover: l.cover || 0, carry: l.carry || 0, pond: l.pond || 0, node: l.node ?? -1, moving: l.moving ? 1 : 0 })), ...this.worldStruct(), flowers: this.flowers.map(f => [f.id, f.x, f.z, f.k, Math.floor(f.g * 3)]), bridges: this.bridges, nodes: this.nodes.map(n => [n.x, n.z, n.k]), edges: this.edges.map(e => e.slice()) };
+    return { ver: this.ver, lots: this.lots.map(l => ({ id: l.id, kind: l.kind, rk: this.rkind(l), tier: l.tier || 0, up: !!l.upTo, x: l.x, z: l.z, rot: l.rot, r: l.r, done: l.done, stage: l.stage, name: l.name, use: l.use, door: l.door, item: l.item || null, combo: l.combo || null, fac: l.fac || null, shop: l.shop || null, damp: l.damp ? Math.round(l.damp * 4) / 4 : 0, old: l.old ? 1 : 0, cover: l.cover || 0, carry: l.carry || 0, pond: l.pond || 0, node: l.node ?? -1, moving: l.moving ? 1 : 0 })), ...this.worldStruct(), flowers: this.flowers.map(f => [f.id, f.x, f.z, f.k, Math.floor(f.g * 3)]), bridges: this.bridges, flora: this.floraStruct(), nodes: this.nodes.map(n => [n.x, n.z, n.k]), edges: this.edges.map(e => e.slice()) };
   }
   info() { // 给界面用的“可读”信息，每秒一次
     const nm = (id) => this.rById(id)?.name;
@@ -940,13 +962,13 @@ export class Sim {
         const rel = Object.entries(r.aff).map(([id, v]) => ({ id: +id, name: nm(+id), v: Math.round(v) })).filter(x => x.name).sort((a, b) => b.v - a.v);
         return { id: r.id, name: r.name, sp: r.sp, traits: r.traits, full: Math.round(r.full), energy: Math.round(r.energy), mood: Math.round(r.mood), home: h ? h.name : '还没有家', homeKind: h ? h.kind : null, homeCombo: h ? h.combo || null : null, owner: own ? own.name : null,
           friends: rel.filter(x => r.friends.includes(x.id)), acq: rel.filter(x => !r.friends.includes(x.id)).slice(0, 2), wish: r.wish ? { type: r.wish.type, text: r.wish.text, day: r.wish.day } : null, doing: r.doing, recent: r.recent.slice(),
-          dream: r.dream ? r.dream.label : null, hauled: r.hauled, built: r.built, hidden: r.act === ACT.INSIDE, bub: r.emo ? { code: r.emo, why: r.emoWhy || null } : null, chatP: r.chat ? nm(r.chat.p) : null, away: !!r.away, trip: r.job === 'trip', x: r.x, z: r.z, job: r.job, act: r.act, in: this.inLot(r), hl: r.home, ate: r.ate.map(a => ({ ...a })), fav: r.fav };
+          dream: r.dream ? r.dream.label : null, hauled: r.hauled, built: r.built, hidden: r.act === ACT.INSIDE, arr: r.arr || 0, bub: r.emo ? { code: r.emo, why: r.emoWhy || null } : null, chatP: r.chat ? nm(r.chat.p) : null, away: !!r.away, trip: r.job === 'trip', x: r.x, z: r.z, job: r.job, act: r.act, in: this.inLot(r), hl: r.home, ate: r.ate.map(a => ({ ...a })), fav: r.fav };
       }),
       far: this.lots.filter(l => l.stage === 'far').map(l => ({ id: l.id, kind: l.kind, name: OBJ_NAME[l.kind], x: l.x, z: l.z })),
       projs: this.projects.filter(p => p.stage !== 'done').map(p => { const l = this.lotById(p.lot); return { id: p.id, kind: p.kind, stage: p.stage, team: p.team.length, need: p.need, prog: l.prog, paid: l.paid, name: l.use ? l.name : OBJ_NAME[p.kind], use: l.use, missing: p.stage === 'renovate' && l.prog >= l.paid / 3 - 1e-6 ? this.stageMissing(l) : [], x: p.x, z: p.z, lot: p.lot, item: l.item || null, who: this.siteWho(p, l), eta: this.siteEta(p, l), recall: this.recallable ? this.recallable(l).ok : false, lx: l.x, lz: l.z, hp: p.cum && p.cum[p.cum.length - 1] > 0 ? p.s / p.cum[p.cum.length - 1] : 0 }; }),
       lots: this.lots.filter(l => l.stage !== 'far' && !l.upTo).map(l => ({ moving: l.moving ? 1 : 0, carry: l.carry || 0, id: l.id, name: l.name, kind: l.kind, use: l.use, tier: l.tier || 0, shop: l.shop, done: l.done, owner: nm(l.owner), open: l.use === 'shop' && l.done && this.shopOpen(l), bread: l.bread || 0, baking: l.cook > 0 ? 1 : 0, baked: l.baked || 0, sold: l.sold || 0, beds: l.beds.map(nm), x: l.x, z: l.z, item: l.item || null, combo: l.combo || null, fac: l.fac || null, stage: l.stage, by: l.by || [], ev: l.ev || [], pond: l.pond || 0 })),
       rsc: this.rsc.filter(s => s.type !== 'wood').map(s => ({ id: s.id, name: s.name, type: s.type, stock: Math.floor(s.stock), max: s.max, x: s.x, z: s.z })),
-      gateLog: this.gateLog.slice(), cat: this.cat, lenia: this.leniaInfo(), world: this.worldInfo(), trip: this.tripInfo(), dreams: this.dreams.map(d => ({ ...d })), cardVer: this.cardVer, stats: { ...this.stats }, gift: this.gift && !this.gift.seen ? this.gift : null,
+      cars: this.carInfo(), gateLog: this.gateLog.slice(), cat: this.cat, lenia: this.leniaInfo(), world: this.worldInfo(), trip: this.tripInfo(), dreams: this.dreams.map(d => ({ ...d })), cardVer: this.cardVer, stats: { ...this.stats }, gift: this.gift && !this.gift.seen ? this.gift : null,
     };
   }
   // 此刻在哪栋建筑里（进屋画面用）：在家里（睡觉/打盹/躲雨/吃饭）、在店里看店或坐着吃喝、在图书角这类设施里玩
@@ -996,10 +1018,10 @@ export class Sim {
     const R2 = (v) => Math.round(v * 100) / 100; if (now) this.savedAt = now;
     return JSON.stringify({ v: SAVE_VERSION, seed: this.seed, rs: this.rs, t: R2(this.t), nextId: this.nextId, nextLot: this.nextLot, store: FOOD_IDS.map(k => R2(this.store[k])), fl: this.foodLog, na: R2(this.nextArrival), nf: R2(this.nextFar), nw: R2(this.nextWish),
       mats: this.mats, gl: this.gateLog, savedAt: this.savedAt, farN: this.farN, tierT: R2(this.tierT), cardId: this.cardId, dreamId: this.dreamId, cards: this.cards, album: this.album, cat: this.cat, dreams: this.dreams, gift: this.gift, stats: this.stats,
-      res: this.res.map(r => ({ id: r.id, name: r.name, sp: r.sp, tr: r.traits, x: R2(r.x), z: R2(r.z), f: Math.round(r.full), e: Math.round(r.energy), m: Math.round(r.mood), h: r.home, aff: Object.fromEntries(Object.entries(r.aff).map(([k, v]) => [k, Math.round(v)])), w: r.wish, wcd: R2(r.wishCD), d: r.dream ? r.dream.id : 0, ha: r.hauled, bu: r.built, ow: r.owner, rc: r.recent, doing: r.doing, ls: R2(r.lastShop), mt: r.meets, fr: r.friends, la: R2(r.late), aw: r.away || 0, th: r.tripHome || 0, at: r.ate, ff: r.fav })),
+      res: this.res.map(r => ({ id: r.id, name: r.name, sp: r.sp, tr: r.traits, x: R2(r.x), z: R2(r.z), f: Math.round(r.full), e: Math.round(r.energy), m: Math.round(r.mood), h: r.home, aff: Object.fromEntries(Object.entries(r.aff).map(([k, v]) => [k, Math.round(v)])), w: r.wish, wcd: R2(r.wishCD), d: r.dream ? r.dream.id : 0, ha: r.hauled, bu: r.built, ow: r.owner, rc: r.recent, doing: r.doing, ls: R2(r.lastShop), mt: r.meets, fr: r.friends, la: R2(r.late), ar: r.arr || 0, aw: r.away || 0, th: r.tripHome || 0, at: r.ate, ff: r.fav })),
       lots: this.lots.map(l => ({ id: l.id, k: l.kind, u: l.use, usp: l.usp, sh: l.shop, n: l.name, x: R2(l.x), z: R2(l.z), rot: R2(l.rot), p: Math.round(l.prog * 1e4) / 1e4, pd: l.paid, d: l.done ? 1 : 0, b: l.beds, node: l.node, st: l.stage, fx: R2(l.fx), fz: R2(l.fz), ow: l.owner, fg: l.firstGuest || 0, ti: l.tier || 0, da: R2(l.doneAt || 0), up: l.upTo || 0, fs: l.forceShop || null, it: l.item || null, fc: l.fac || null, cb: l.combo || null, be: l.bridgeEnds || null, lr: l.use === 'bridge' ? l.r : 0, lt: l.landT ? R2(l.landT) : 0, wy: l.why || null, dp: l.damp ? R2(l.damp) : 0, od: l.old ? 1 : 0, cv: l.cover || 0, pn: l.pond ? R2(l.pond) : 0, by: l.by || null, ev: l.ev || null, mv: l.moving ? R2(l.moving) : 0, br: l.bread ? R2(l.bread) : 0 })),
-      nodes: this.nodes.map(n => [R2(n.x), R2(n.z), n.k]), edges: this.edges, rsc: this.rsc.map(s => R2(s.stock)),
-      proj: this.projects.filter(p => p.stage !== 'done').map(p => ({ id: p.id, st: p.stage === 'haul' ? 'gather' : p.stage, s: R2(p.s), path: p.path.map(q => [R2(q[0]), R2(q[1])]), fi: p.finder || 0 })), le: this.leniaSave(), wd: this.worldSave() });
+      cars: this.carSave(), nc: this.carId, nodes: this.nodes.map(n => [R2(n.x), R2(n.z), n.k]), edges: this.edges, rsc: this.rsc.map(s => R2(s.stock)),
+      proj: this.projects.filter(p => p.stage !== 'done').map(p => ({ id: p.id, st: p.stage === 'haul' ? 'gather' : p.stage, s: R2(p.s), path: p.path.map(q => [R2(q[0]), R2(q[1])]), fi: p.finder || 0 })), le: this.leniaSave(), wd: this.worldSave(), fa: this.floraSave() });
   }
   load(S) {
     Object.assign(this, { seed: S.seed, rs: S.rs, t: S.t, nextId: S.nextId, nextLot: S.nextLot, store: Array.isArray(S.store) ? Object.fromEntries(FOOD_IDS.map((k, i) => [k, +S.store[i] || 0])) : splitOldStore(S.store), foodLog: S.fl || [], nextArrival: S.na, nextFar: S.nf, nextWish: S.nw, mats: S.mats, gateLog: S.gl || [], savedAt: S.savedAt || 0, cardId: S.cardId, dreamId: S.dreamId,
@@ -1011,14 +1033,16 @@ export class Sim {
       return { id: a.id, kind: a.k, use: a.u, usp: a.usp, shop: a.sh, name: a.n, x: a.x, z: a.z, rot: a.rot, r: K.r, prog: a.p, paid: a.pd, done: !!a.d, beds: a.b, node: a.node, stage: a.st, fx: a.fx, fz: a.fz, owner: a.ow, firstGuest: a.fg, seats: [], tier: a.ti || 0, doneAt: a.da || 0, upTo: a.up || 0, forceShop: a.fs || null, item: a.it || null, fac: a.fc || null, combo: a.cb || null, bridgeEnds: a.be || null, landT: a.lt || 0, why: a.wy || null, damp: a.dp || 0, old: !!a.od, cover: a.cv || 0, pond: a.pn || 0, by: a.by || null, ev: a.ev || null, ...(a.mv ? { moving: a.mv } : {}), bread: a.br || 0, cook: 0, look: a.st === 'landed' ? { seen: [], t2: 0, sum: 0 } : null,
         door: far ? null : a.up ? [a.x, a.z] : [a.x + K.door[0] * c + K.door[1] * s, a.z - K.door[0] * s + K.door[1] * c] }; });
     this.res = []; const nid = this.nextId;
-    for (const a of S.res) { const r = this.spawn(a.sp, a.x, a.z); Object.assign(r, { id: a.id, name: a.name, traits: a.tr, full: a.f, energy: a.e, mood: a.m, home: a.h, aff: {}, wish: a.w, wishCD: a.wcd, hauled: a.ha, built: a.bu, owner: a.ow, recent: a.rc || [], doing: a.doing || '', lastShop: a.ls ?? -1e9, meets: a.mt || {}, friends: a.fr || [], late: a.la ?? 0, away: a.aw || 0, tripHome: a.th || 0, ate: a.at || [], fav: a.ff || FAV_FOOD[a.sp] });
+    for (const a of S.res) { const r = this.spawn(a.sp, a.x, a.z); Object.assign(r, { id: a.id, name: a.name, traits: a.tr, full: a.f, energy: a.e, mood: a.m, home: a.h, aff: {}, wish: a.w, wishCD: a.wcd, hauled: a.ha, built: a.bu, owner: a.ow, recent: a.rc || [], doing: a.doing || '', lastShop: a.ls ?? -1e9, meets: a.mt || {}, friends: a.fr || [], late: a.la ?? 0, arr: a.ar || 0, away: a.aw || 0, tripHome: a.th || 0, ate: a.at || [], fav: a.ff || FAV_FOOD[a.sp] });
       for (const k in a.aff || {}) r.aff[k] = +a.aff[k]; const d = this.dreams.find(d => d.id === a.d && d.status === 'pending'); r.dream = d || null; }
     for (const d of this.dreams) if (d.status === 'pending' && !this.res.some(r => r.dream === d)) d.status = 'expired';
     this.nextId = nid;
     this.notices = []; this.leniaLoad(S.le); this.worldLoad(S.wd, this._now);
     if ((S.v || 0) < 7 && S.power > 0) this.heart += Math.floor(S.power); // 旧档：梦的力气并进心意，不多不少
     for (const l of this.lots) if (l.use === 'bridge') l.r = 2.2;
+    this.floraLoad(S.fa);
     this.projects = (S.proj || []).map(a => { const lot = this.lotById(a.id); if (!lot) return null; const p = this.makeProject(lot, a.path); p.stage = a.st; p.s = a.s; p.finder = a.fi; const q = this.pathAt(p, p.s); p.x = q[0]; p.z = q[1]; p.yaw = q[2]; if (p.stage === 'renovate') { p.x = lot.x; p.z = lot.z; p.yaw = lot.rot; p.cum = [0, 0]; } return p; }).filter(Boolean);
+    this.carLoad(S); // 玩具车：存档里有就接着用，旧档里已有的玩具车货运站配一辆停在站里的
   }
   // ---------------------------------------------------------------- 设施：居民去用一下（每种都有实实在在的作用，见 FAC.fx）
   facFun(r, l) {
@@ -1081,3 +1105,5 @@ export class Sim {
 }
 installLenia(Sim);
 installSeasons(Sim);
+installCars(Sim);
+installFlora(Sim);

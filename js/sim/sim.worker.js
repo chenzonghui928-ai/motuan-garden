@@ -64,6 +64,9 @@ onmessage = (e) => {
     }
     case 'dbgInside': sim.dbgInside(m.lot, m.what); postInfo(true); tick(); break; // 测试/截图用：住户马上进屋吃饭/睡觉
     case 'dbgFood': { const r = sim.dbgFood(m); postMessage({ type: 'dbgFoodResult', ...r }); postInfo(true); tick(); break; } // 测试/截图用：设粮筐库存、让谁饿了/吃东西、让面包房马上开烤
+    case 'dbgStation': { const r = sim.dbgStation(m); postMessage({ type: 'dbgStationResult', ...r }); postStruct(); postInfo(true); tick(); break; }
+    case 'dbgHaul': sim.dbgHaul(); postStruct(); postInfo(true); tick(); break;
+    case 'dbgCar': sim.dbgCar(m); postInfo(true); tick(); break; // 测试/截图用：让玩具车载人兜风 / 抛锚
     case 'dbgShop': sim.dbgShop(m.lot, m.n || 3); postInfo(true); tick(); break; // 测试/截图用：店里马上来客人
     case 'dbgStall': { const l = sim.lotById(m.lot); if (l && l.paid < 3) { for (const k in sim.mats) sim.mats[k] = 0; l.prog = Math.max(l.prog, l.paid / 3); } postInfo(true); tick(); break; } // 测试/截图用：让一栋改造中的房子缺料停工
     case 'dbgEmo': { const ws = [[1, { k: 'gawk', a: '毛线球' }], [2, { k: 'made', a: '毛线球', b: '毛线秋千' }], [3, { k: 'fac', a: '毛线秋千', b: '玩了一会儿' }], [4, { k: 'talk', a: '毛线球', b: '阿旺' }], [1, { k: 'mat', a: '木枝', b: '树叶棚', c: '木枝堆' }]]; const ids = m.ids || sim.res.slice(0, 5).map(r => r.id); ids.forEach((id, i) => { const r = sim.rById(id); if (r && ws[i]) sim.emo(r, ws[i][0], 600, ws[i][1]); }); postInfo(true); tick(); break; } // 测试/截图用：几位居民头顶同时冒各种气泡

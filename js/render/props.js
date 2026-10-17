@@ -573,6 +573,35 @@ const ADDON = {
   flag: () => [T(cyl(0.03, 0.03, 1.2, 6), '#6b4a2a', 0, 0.6, 0), T(box(0.02, 0.32, 0.5), '#f39a3d', 0, 1.02, 0.26)],
 };
 
+// ---------------------------------------------------------------- 玩具车（会跑的那辆）：车身（不带轮子）、轮子、火柴盒车厢、停车棚、拖绳
+// 局部坐标：车头朝 +x、车身宽在 z、单位 × 车缩放（CAR_S = 2.39）；轮子单独一个造型，由画面每帧按行驶距离转动
+const CAR_S = 2.39;
+const CAR_BODY = inCell('toycar', () => [
+  ...U([0, 0, 128, 128], () => [T(rbox(1.9, 0.5, 1.0, 0.16), '#ffffff', 0, 0.52, 0), T(rbox(0.85, 0.3, 0.98, 0.12), '#ffffff', 0.5, 0.86, 0), T(rbox(0.5, 0.32, 0.96, 0.12), '#ffffff', -0.72, 0.84, 0)]),
+  T(rbox(0.5, 0.06, 0.72, 0.03), '#5a3a24', -0.18, 0.8, 0), T(rbox(0.16, 0.42, 0.72, 0.07), '#7a4a2a', -0.42, 0.98, 0, 0, 0, 0.2), T(rbox(0.36, 0.1, 0.72, 0.04), '#8a5530', -0.2, 0.83, 0),
+  T(tor(0.13, 0.025, TAU, 16, 4), '#2b2624', 0.12, 1.08, 0, 0, PI / 2, -0.5), T(cyl(0.02, 0.02, 0.25, 5), '#2b2624', 0.2, 0.96, 0, 0, 0, -0.5),
+  ...U([128, 0, 128, 128], () => [T(plane(0.62, 0.36), '#ffffff', 0.951, 0.56, 0, 0, PI / 2)]),
+  ...Ly('metal', () => [...[-0.32, 0.32].map(z => T(sph(0.09, 12, 8), '#f4f1e6', 0.94, 0.8, z)), T(rbox(0.12, 0.08, 1.04, 0.03), '#d9d9d9', 1.0, 0.32, 0), T(rbox(0.1, 0.08, 1.04, 0.03), '#d9d9d9', -0.98, 0.32, 0),
+    // 侧面的黄铜发条钥匙（两边各一把）和车尾牵引环
+    ...[-1, 1].flatMap(k => [T(cyl(0.025, 0.025, 0.14, 6), '#d6b25c', 0.02, 0.66, k * 0.55, PI / 2), T(tor(0.07, 0.025, TAU, 14, 4), '#e2bf62', 0.02, 0.66, k * 0.64)]),
+    T(tor(0.075, 0.02, TAU, 14, 4), '#9a9a9a', -1.04, 0.5, 0, 0, PI / 2)]),
+  T(rbox(0.22, 0.012, 0.3, 0.004), '#b8452f', 0.2, 0.78, 0.5), // 旧铁皮上的修补片
+]);
+const CAR_WHEEL = () => [T(tor(0.22, 0.09, TAU, 22, 8), '#2b2624'), T(cyl(0.17, 0.17, 0.12, 18), '#c9965a', 0, 0, 0, PI / 2), T(cyl(0.06, 0.06, 0.16, 10), '#b8452f', 0, 0, 0, PI / 2)];
+// 火柴盒车厢：挂在车尾（小火车）。车厢中心在车后 2.25 处，轮子在 CAR_TRAIL_W
+const CAR_TRAILER = () => [T(rbox(1.5, 0.3, 0.9, 0.05), '#d9b878', -2.25, 0.5, 0), T(rbox(1.3, 0.02, 0.7, 0.01), '#8a5a30', -2.25, 0.66, 0), T(rbox(1.1, 0.1, 0.01, 0.004), '#7a2d22', -2.25, 0.45, 0.452), T(rbox(1.1, 0.1, 0.01, 0.004), '#7a2d22', -2.25, 0.45, -0.452),
+  T(box(0.55, 0.04, 0.05), '#555555', -1.27, 0.42, 0), ...xf(crateP(0.34), -2.0, 0.66, 0.05), ...xf(sackP(0.28), -2.55, 0.66, -0.05)];
+// 停车棚：木板车位 + 轮挡 + 车尾一侧两根冰棒棍立柱，搭一块旧铁皮盒盖当顶（只盖车尾，车头露在外面，上下车看得见）；车开走后留着
+const GARAGE = () => {
+  const arc = new THREE.CylinderGeometry(1.0, 1.0, 0.58, 20, 1, true, 0, PI);
+  return [T(rbox(3.1, 0.07, 1.95, 0.03), '#b98d5c', 0.1, 0.035, 0), ...[-0.65, -0.2, 0.25, 0.7].map(z => T(box(3.1, 0.012, 0.03), '#8a5a30', 0.1, 0.075, z)),
+    ...[-1, 1].map(k => T(rbox(0.12, 0.13, 0.26, 0.04), '#7a5a3a', -1.3, 0.12, k * 0.52)),
+    ...[-1, 1].map(k => T(cyl(0.045, 0.05, 1.7, 6), '#d9b77a', -1.45, 0.85, k * 0.92)),
+    ...[0, 1, 2].map(k => T(arc, k % 2 ? '#f2e3c8' : '#c8423a', -1.2 + k * 0.58, 1.78, 0, 0, 0, PI / 2, 0.5, 1, 0.97)), T(box(1.75, 0.04, 0.04), WOOD_D, -0.62, 1.66, 0.96), T(box(1.75, 0.04, 0.04), WOOD_D, -0.62, 1.66, -0.96),
+    ...xf(lanternP(0.18), -1.5, 1.45, 0.92)];
+};
+const CAR_ROPE = () => [T(box(1, 0.05, 0.05), '#e8dcc0', 0.5, 0, 0)];
+
 export class Props {
   constructor(scene) {
     this.scene = scene; this.lots = new Map(); this.proj = new Map(); this.sets = {}; this.flowers = []; this.flowerDirty = true;
@@ -610,7 +639,46 @@ export class Props {
     const dustT = ctex(64, 64, (c) => { const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,248,230,0.9)'); g.addColorStop(1, 'rgba(255,248,230,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); });
     this.dust = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: dustT, transparent: true, depthWrite: false }), 24); this.dust.count = 0; this.dust.frustumCulled = false; scene.add(this.dust);
     this.puffs = [];
+    this._mk = mk; this.cars = []; this.carLots = new Set(); this.cpart = []; this._carFx = new Map(); // 玩具车：没有车时什么都不建（第一辆车出现才造模型）
   }
+  // ---------------------------------------------------------------- 玩具车（画面部分；位置由 main.js 插值后每帧交进来）
+  ensureCarModels() {
+    if (this.layersOf.car_body) return;
+    const mk = this._mk; mk('car_body', CAR_BODY(), 6); mk('car_wheel', CAR_WHEEL(), 48); mk('car_trailer', CAR_TRAILER(), 6); mk('garage', GARAGE(), 8); mk('car_rope', CAR_ROPE(), 6);
+    const dustT = ctex(64, 64, (c) => { const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.6, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); });
+    this.cpm = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: dustT, transparent: true, depthWrite: false }), 90); this.cpm.count = 0; this.cpm.frustumCulled = false; this.cpm.setColorAt(0, _c.set('#ffffff')); this.cpm.renderOrder = 3; this.scene.add(this.cpm);
+  }
+  setCars(list) { this.cars = list; this.carLots = new Set(list.map(c => c.lot)); if (list.length) this.ensureCarModels(); }
+  carParticles(dt, t, camera, putM) {
+    const cars = this.cars; const P = this.cpart;
+    for (const c of cars) {
+      let fx = this._carFx.get(c.id); if (!fx) this._carFx.set(c.id, fx = { dust: 0, smoke: 0, br: 0 });
+      const f = [Math.sin(c.yaw), Math.cos(c.yaw)], sd = [Math.cos(c.yaw), -Math.sin(c.yaw)], S = c.s; const y = (Math.hypot(c.x, c.z) > WORLD_R + 4 ? groundH(c.x, c.z) : 0) + 0.12;
+      fx.dust -= dt; if (c.v > 1.2 && fx.dust <= 0 && c.st !== 'park') { fx.dust = 0.07 + Math.random() * 0.05; for (const k of [-1, 1]) if (P.length < 80) P.push({ x: c.x - f[0] * 0.62 * S + sd[0] * k * 0.5 * S, z: c.z - f[1] * 0.62 * S + sd[1] * k * 0.5 * S, y, vx: -f[0] * 0.5 + (Math.random() - 0.5) * 0.5, vz: -f[1] * 0.5 + (Math.random() - 0.5) * 0.5, vy: 0.5 + Math.random() * 0.4, t: 0, life: 0.5 + Math.random() * 0.4, sz: 0.4 + Math.random() * 0.3, col: '#dcc79e' }); }
+      fx.br -= dt; if (c.br && fx.br <= 0) { fx.br = 0.14; for (const k of [-1, 1]) if (P.length < 80) P.push({ x: c.x + f[0] * 0.6 * S + sd[0] * k * 0.5 * S, z: c.z + f[1] * 0.6 * S + sd[1] * k * 0.5 * S, y, vx: sd[0] * k * 0.6, vz: sd[1] * k * 0.6, vy: 0.4, t: 0, life: 0.45, sz: 0.55, col: '#f1ead9' }); }
+      fx.smoke -= dt; if (c.st === 'broke' && fx.smoke <= 0) { fx.smoke = 0.22; if (P.length < 80) P.push({ x: c.x + f[0] * 0.75 * S, z: c.z + f[1] * 0.75 * S, y: y + 0.95 * S, vx: (Math.random() - 0.5) * 0.3, vz: (Math.random() - 0.5) * 0.3, vy: 0.9, t: 0, life: 1.3, sz: 0.7, col: '#8f8b86' }); }
+    }
+    let n = 0; for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; p.t += dt; if (p.t >= p.life) { P.splice(i, 1); continue; } p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt; p.vy *= 0.96; }
+    for (const p of P) { if (n >= 90) break; const u = p.t / p.life; const sc = p.sz * (0.6 + u * 1.2) * (u > 0.6 ? 1 - (u - 0.6) / 0.4 : 1); _q.copy(camera.quaternion); _m2.compose(_v.set(p.x, p.y, p.z), _q, _s.set(sc, sc, sc)); this.cpm.setMatrixAt(n, _m2); this.cpm.setColorAt(n, _c.set(p.col)); n++; }
+    this.cpm.count = n; this.cpm.visible = n > 0; if (n) { this.cpm.instanceMatrix.needsUpdate = true; if (this.cpm.instanceColor) this.cpm.instanceColor.needsUpdate = true; }
+  }
+  drawCars(dt, t, camera, put) {
+    const putM = (key, M) => { const Ls = this.layersOf[key]; if (!Ls) return; for (const sk of Ls) { const S = this.sets[sk]; if (S.n >= S.cap) continue; S.im.setMatrixAt(S.n, M); S.im.setColorAt(S.n, _c.set('#ffffff')); S.n++; } };
+    const Mb = new THREE.Matrix4(), Mt = new THREE.Matrix4(), Mw = new THREE.Matrix4(), Mr = new THREE.Matrix4();
+    for (const c of this.cars) {
+      const S = c.s, y0 = Math.hypot(c.x, c.z) > WORLD_R + 4 ? groundH(c.x, c.z) : 0; const mv = c.v > 0.3 ? Math.min(1, c.v / 3) : 0;
+      const bob = mv * (0.012 + Math.abs(Math.sin(t * 15 + c.id)) * 0.018) * S, roll = mv * Math.sin(t * 9 + c.id) * 0.012, pit = (c.br ? -0.06 : 0) + (c.st === 'broke' ? Math.sin(t * 20) * 0.015 : 0);
+      Mr.makeRotationY(c.yaw - PI / 2).multiply(Mt.makeRotationZ(pit)).multiply(Mt.makeRotationX(roll)); Mb.copy(Mr); Mb.scale(_s.set(S, S, S)); Mb.setPosition(c.x, y0 + bob, c.z);
+      putM('car_body', Mb); if (c.tr) putM('car_trailer', Mb);
+      const wl = [[0.6, 0.5], [0.6, -0.5], [-0.6, 0.5], [-0.6, -0.5]]; if (c.tr) wl.push([-1.75, 0.5], [-1.75, -0.5], [-2.75, 0.5], [-2.75, -0.5]);
+      for (const [lx, lz] of wl) { Mw.makeRotationZ(c.spin); Mw.setPosition(lx, 0.31, lz); Mt.multiplyMatrices(Mb, Mw); putM('car_wheel', Mt); }
+      if (c.rope) { // 拖绳：车尾牵引环 → 旧物前沿
+        const f = [Math.sin(c.yaw), Math.cos(c.yaw)]; const ax = c.x - f[0] * 1.04 * S, az = c.z - f[1] * 1.04 * S; const dx = c.rope.x - ax, dz = c.rope.z - az; const L = Math.hypot(dx, dz); const ux = dx / L, uz = dz / L; const bx = c.rope.x - ux * c.rope.r, bz = c.rope.z - uz * c.rope.r; const len = Math.hypot(bx - ax, bz - az);
+        if (len > 0.3) { Mt.makeRotationY(Math.atan2(-(bz - az), bx - ax)); Mt.scale(_s.set(len, 1, 1)); Mt.setPosition(ax, y0 + 0.5 * S * 0.8, az); putM('car_rope', Mt); } }
+    }
+    this.carParticles(dt, t, camera);
+  }
+  carsEnd() { if (!this.cars.length && !this.cpart.length) return; }
   has(rk) { return !!this.layersOf[rk]; }
   // ---------------------------------------------------------------- 木牌上的字：每块牌一张小网格（正反两面），同一句话共用一张 canvas 贴图
   signTex(text) {
@@ -650,13 +718,19 @@ export class Props {
   setProjects(list) { this.proj.clear(); for (const p of list) this.proj.set(p.lot, p); }
   // ---------------------------------------------------------------- 放置模式
   setGhost(g) { // { item, kind, x, z, yaw, h, ok, r, show }
-    if (!g) { this.ghost.visible = false; this.marker.visible = false; this.shadow.visible = false; return; }
+    if (!g) { this.ghost.visible = false; this.marker.visible = false; this.shadow.visible = false; if (this.saw) this.saw.visible = false; return; }
     const tmpl = TEMPLATE_KINDS.has(g.kind);
     if (!tmpl && this.ghostKey !== g.kind && this.geos[g.kind]) { this.ghostKey = g.kind; this.ghost.clear(); this.ghost.add(this.groupOf(g.kind, true)); }
     this.ghost.visible = !tmpl && g.show !== false && !!this.geos[g.kind]; const s = g.r; const y = (g.x * g.x + g.z * g.z > (WORLD_R + 4) ** 2 ? groundH(g.x, g.z) : 0);
     this.ghost.position.set(g.x, y + g.h, g.z); this.ghost.rotation.set(Math.sin(g.t * 1.6) * 0.04, g.yaw, Math.sin(g.t * 1.3) * 0.05); this.ghost.scale.setScalar(s);
     this.marker.visible = g.marker !== false; this.marker.position.set(g.x, y + 0.06, g.z); const fb = g.foot; const ms = fb ? Math.max(-fb[0], fb[1], -fb[2], fb[3]) + 0.5 : g.r * 1.25 + 0.6; this.marker.scale.set(ms, 1, ms); // 圈的大小 = 真实占地（含改造后可能的样子）
-    this.marker.material.color.set(g.ok ? '#8ee86a' : '#ff6b5a'); this.marker.material.opacity = 0.75 + Math.sin(g.t * 4) * 0.2;
+    if (!this.saw) { // 先清理的小锯子徽章（琥珀圆 + 白色锯子），立在圈中间
+      const cv = document.createElement('canvas'); cv.width = cv.height = 96; const c = cv.getContext('2d'); c.fillStyle = '#e8a32d'; c.beginPath(); c.arc(48, 48, 42, 0, TAU); c.fill(); c.lineWidth = 6; c.strokeStyle = '#ffd477'; c.stroke();
+      c.save(); c.translate(48, 48); c.rotate(-0.6); c.fillStyle = '#fff'; c.fillRect(-26, -9, 52, 18); c.fillStyle = '#7a4a0c'; c.fillRect(14, -12, 14, 24); c.fillStyle = '#fff'; c.beginPath(); for (let i = 0; i < 7; i++) { c.lineTo(-26 + i * 6, 9); c.lineTo(-23 + i * 6, 17); } c.lineTo(16, 9); c.fill(); c.restore();
+      const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; this.saw = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthTest: false, toneMapped: false })); this.saw.renderOrder = 9; this.saw.visible = false; this.scene.add(this.saw);
+    }
+    this.saw.visible = !!(g.ok && g.warn); if (this.saw.visible) { this.saw.position.set(g.x, y + 0.6, g.z + 0.01); this.saw.scale.setScalar(clamp(ms * 0.45, 1.6, 3)); }
+    this.marker.material.color.set(g.ok ? (g.warn ? '#f5b53f' : '#8ee86a') : '#ff6b5a'); // 绿 = 可以放，琥珀 = 可以放但脚下的植物要先清，红 = 不行 this.marker.material.opacity = 0.75 + Math.sin(g.t * 4) * 0.2;
     const hill = y > 0.05; this.marker.material.depthTest = this.shadow.material.depthTest = !hill; // 花园外圈的草坪有起伏：平的圈别被坡埋住一半
     this.shadow.visible = g.h > 0.1; this.shadow.position.set(g.x, y + 0.05, g.z); const ss = g.r * (1.0 + 0.6 / (1 + g.h * 0.2)); this.shadow.scale.set(ss, 1, ss); this.shadow.material.opacity = clamp(1.2 - g.h * 0.08, 0.25, 0.9);
   }
@@ -684,6 +758,7 @@ export class Props {
       if (d.cover === 1 && !d.done) put('add_leaf', d.x, y + d.r * 0.95, d.z, d.yaw + 0.6, d.r * 1.2, d.r * 1.2, d.r * 1.2);
       const yb = bridge && !(p && (p.stage === 'gather' || p.stage === 'haul')) ? 0 : y;
       if (bridge && p && (p.stage === 'gather' || p.stage === 'haul')) put(d.kind, d.x, y, d.z, d.yaw, 2.2, 2.2, 2.2, _c);
+      else if (d.fac === 'train' && d.done && this.carLots.has(d.id)) put('garage', d.x, yb, d.z, d.yaw, CAR_S, CAR_S, CAR_S, _c); // 车有了：货运站画成停车棚，车开走了棚里就空着
       else put(d.key, d.x, yb, d.z, d.yaw, s, s, s, _c);
       if (bridge || d.stage === 'landed' || d.stage === 'haul') continue;
       // 改造：门和台阶 → 窗和灯 → 按用途的装饰；再加招牌/小旗（按改造进度出现）
@@ -701,6 +776,7 @@ export class Props {
       if (d.done) { put('add_sign', -r - 0.5, 0, r * 0.55, 0.4, 1, 1, 1, null, _m); this.signLabel(d, signName(d), r); if (d.use === 'fac') put('add_flag', 0, Math.max(H, 1.2) * Math.min(1, r / 2.2) * 0.95, 0, Math.sin(t * 2 + d.id) * 0.4, 1, 1, 1, null, _m); }
     }
     this._wip = false; this.signsEnd();
+    if (this.cars.length || this.cpart.length) this.drawCars(dt, t, camera, put);
     // 雪人、节日布置（广场四周 8 个位置，按布置进度一件件出现）
     for (const sm of this.snowmen || []) put('snowman_' + (sm[4] % 4), sm[1], 0, sm[2], sm[3], 1, 1, 1);
     if (this.fest && this.layersOf['fest_' + this.fest.id]) { const id = this.fest.id, n = Math.round(this.fest.prog * 8), R = 12.2, S = 1.6; for (let i = 0; i < n; i++) { const a = PI / 4 + Math.floor(i / 2) * PI / 2 + (i % 2 ? 0.32 : -0.32); put('fest_' + id, Math.cos(a) * R, 0, Math.sin(a) * R, -a + PI / 2, S, S, S); if (i % 2) { const m = a - 0.32; put('fbunt_' + id, Math.cos(m) * R * 0.995, 0, Math.sin(m) * R * 0.995, -m, 1, 1, 1); } } }

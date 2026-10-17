@@ -229,7 +229,7 @@ export function installSeasons(Sim) {
     const D = DESTS[o.dest]; if (!D || !this.destOpen(o.dest)) return { ok: false, why: '还没听说过这个地方' };
     if (!ITEMS[o.item] || !(this.box[o.item] > 0)) return { ok: false, why: '储物箱里没有这件东西了' };
     const rs = [...new Set(o.rids || [])].map(id => this.rById(id)).filter(Boolean); if (rs.length < 2 || rs.length > 3) return { ok: false, why: '要选 2～3 位居民' };
-    for (const r of rs) if (r.haul) return { ok: false, why: `${r.name}正在拖东西，走不开` };
+    for (const r of rs) if (r.haul || r.ride) return { ok: false, why: `${r.name}正在拖东西，走不开` };
     const c = this.cal(); const hours = tripHours(o.dest, o.item, rs.flatMap(r => r.traits), c.season, this.rng());
     this.box[o.item]--; if (!this.box[o.item]) delete this.box[o.item];
     const g = GATES[D.gate]; const gl = Math.hypot(g[0], g[1]);
@@ -241,7 +241,7 @@ export function installSeasons(Sim) {
     return { ok: true, why: `小队出发了，大约 ${hours} 小时后回来`, hours };
   };
   P.tripOut = function (r, i) {
-    const e = this.exp; if (r.haul) this.leaveHaul(r); this.finishTask(r); r.chat = null; const g = GATES[e.gate]; const s = (i - 1) * 1.1;
+    const e = this.exp; if (r.haul || r.ride) this.leaveHaul(r); this.finishTask(r); r.chat = null; const g = GATES[e.gate]; const s = (i - 1) * 1.1;
     this.setSteps(r, [this.go(g[0], g[1]), this.go(e.ox - e.oz / 80 * s, e.oz + e.ox / 80 * s), this.doo(A.INSIDE, 0.5, 'tripAway')], 'trip', `背着行囊去${DESTS[e.dest].name}远行`);
     r.box = 1; this.remember(r, `出发去${DESTS[e.dest].name}远行`);
   };

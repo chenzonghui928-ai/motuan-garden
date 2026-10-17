@@ -22,7 +22,7 @@ export function installLenia(Sim) {
     for (const k of WISH_ORDER.slice(0, 3)) this.addTownWish(k);
   };
   // ---------------------------------------------------------------- 摆放
-  P.placeState = function () { return { lots: this.lots.slice(), snowmen: this.snowmen || [], nodes: this.nodes.map(n => [n.x, n.z, n.k]), edges: this.edges, bridges: this.bridges, flowers: this.flowers.map(f => [f.x, f.z]), puddles: (this.puddles || []).map(p => [Math.round(p.x * 100) / 100, Math.round(p.z * 100) / 100, Math.round(p.r * 100) / 100, p.id]) }; }; // 和发给主线程的 struct 同样取两位小数：金圈、绿红判定两边算得一模一样
+  P.placeState = function () { return { lots: this.lots.slice(), snowmen: this.snowmen || [], nodes: this.nodes.map(n => [n.x, n.z, n.k]), edges: this.edges, bridges: this.bridges, flowers: this.flowers.map(f => [f.x, f.z]), puddles: (this.puddles || []).map(p => [Math.round(p.x * 100) / 100, Math.round(p.z * 100) / 100, Math.round(p.r * 100) / 100, p.id]), flora: this.floraObstacles() }; }; // 和发给主线程的 struct 同样取两位小数：金圈、绿红判定两边算得一模一样
   P.dropItem = function (item, x, z, rot = 0, hold = false) {
     const it = ITEMS[item]; if (!it) return { ok: false, why: '没有这件东西' };
     if (!(this.box[item] > 0)) return { ok: false, why: `储物箱里没有${it.name}了` };
@@ -36,6 +36,7 @@ export function installLenia(Sim) {
     if (pd) { lot.pond = Math.max(pd.r, r + 0.6); this.puddles = this.puddles.filter(p => p !== pd); this.wstats.puddleUses++; if (placeCheck(pd.x, pd.z, r, this.placeState(), 'item', { item, rot }).ok) { x = pd.x; z = pd.z; } } // 放进水洼：水洼留下来变成它的池子
     Object.assign(lot, { x, z, fx: x, fz: z, rot, stage: 'landed', landT: this.t, look: { seen: [], t2: 0, sum: 0 } });
     this.lots.push(lot); this.ver++; this.lstats.drops++;
+    lot.fmark = 1; this.floraMark(lot); // 落在植物上：小动物要先把它清掉（stepFlora），清完才围观 → 商量用途
     this.log.push(`天上轻轻落下了一个${it.name}`);
     if (!this.idex[item]) this.idex[item] = { n: 0, day: this.day(), uses: [] }; this.idex[item].n++;
     const T = chk.gold ? this.lotById(chk.gold.id) : null; const cb = T && comboOf(item, T.item);
@@ -47,11 +48,12 @@ export function installLenia(Sim) {
   // 新手教程：组合落成时周围的小动物开心地蹦一下、冒音符
   P.celebrate = function (id) { const l = this.lotById(id); if (!l) return { ok: false, silent: true }; let n = 0; for (const r of this.res) if (!r.away && Math.hypot(r.x - l.x, r.z - l.z) < 16) { this.emo(r, EMO.NOTE, 4, { k: 'celebrate' }); r.mood = Math.min(100, r.mood + 5); n++; } return { ok: true, n, silent: true }; };
   P.releaseHold = function () { let n = 0; for (const l of this.lots) if (l.hold) { delete l.hold; n++; } return { ok: true, n, silent: true }; };
-  P.summon = function (lot, R) {
+  P.summon = function (lot, R, pref = null) {
     if (isNight(this.dayT())) return 0; lot.look.sum = this.t; let n = 0;
     const busy = new Set(['eat', 'forage', 'sleep', 'camp', 'shop', 'tend', 'gawk', 'arrive', 'trip', 'rescue', 'fest', 'snowman', 'shelter']);
     const c = this.res.filter(r => !r.haul && !r.chat && !r.away && !busy.has(r.job) && r.act !== 6 && r.act !== 9 && r.full > 22 && Math.hypot(r.x - lot.x, r.z - lot.z) < R)
       .map(r => ({ r, s: Math.hypot(r.x - lot.x, r.z - lot.z) - (this.has(r, 'curious') ? 8 : 0) - (this.has(r, 'brave') ? 3 : 0) + (this.has(r, 'timid') ? 5 : 0) })).sort((a, b) => a.s - b.s);
+    if (pref && pref.length) { const pf = pref.filter(r => !r.away && !r.haul && !r.chat); for (let i = c.length - 1; i >= 0; i--) if (pf.includes(c[i].r)) c.splice(i, 1); c.unshift(...pf.map(r => ({ r, s: 0 }))); } // 刚清完植物的小动物先去看
     const have = this.res.filter(r => r.job === 'gawk' && r.steps[1] && r.steps[1].lot === lot.id).length;
     for (const { r } of c.slice(0, Math.max(0, MAX_WATCH - have))) {
       this.finishTask(r); const a = Math.atan2(r.z - lot.z, r.x - lot.x) + this.rnd(-0.5, 0.5), rr = lot.r + 1.3 + this.rnd(0, 0.8);
@@ -68,6 +70,7 @@ export function installLenia(Sim) {
     const night = isNight(this.dayT());
     for (const lot of this.lots) {
       if (lot.stage !== 'landed' || lot.carry || lot.rescuer) continue; // 正被抱去躲雨：先别商量用途
+      if (lot.clear && lot.clear.length) continue; // 脚下的植物还没清完：清理期间不商量
       if (lot.hold) { if (Date.now() < lot.hold) continue; delete lot.hold; } // 教程里等着拼金圈：到点（真实 5 分钟）自动放开
       const w = this.watchers(lot); for (const r of w) { if (!lot.look.seen.includes(r.id)) { lot.look.seen.push(r.id); this.emo(r, this.rng() < 0.5 ? EMO.WOW : EMO.Q, 3, { k: 'gawk', a: ITEMS[lot.item].name }); } }
       if (night) continue;
@@ -171,7 +174,7 @@ export function installLenia(Sim) {
   };
   P.buildInPlace = function (lot, w) {
     if ((lot.use !== 'home' && lot.use !== 'shop') || (lot.fast && Date.now() < lot.fast)) lot.paid = 3; // 教程加速的组合也不用小材料；设施、摆设、桥：不用小材料，干活就行
-    lot.stage = 'renovate'; lot.prog = 0;
+    lot.stage = 'renovate'; lot.prog = 0; this.floraMark(lot);
     if (lot.node < 0 || lot.node == null) { const c = Math.cos(lot.rot), s = Math.sin(lot.rot); const dl = this.K[lot.kind].door; lot.door = [lot.x + dl[0] * c + dl[1] * s, lot.z - dl[0] * s + dl[1] * c]; lot.node = -1; }
     const p = this.makeProject(lot, [[lot.x, lot.z], [lot.x, lot.z]]); p.stage = 'renovate'; p.yaw = lot.rot; p.cum = [0, 0]; this.projects.push(p); this.ver++;
     for (const r of w) { this.finishTask(r); if (lot.use === 'deco' && p.workers >= 2) continue; this.build(r, p); }
@@ -276,7 +279,7 @@ export function installLenia(Sim) {
     const lot = this.lotById(id); const chk = moveCheck(lot, x, z, rot, this.placeState()); if (!chk.ok) return chk;
     const ox = lot.x, oz = lot.z, wasDone = lot.done; const hadNode = lot.node >= 0;
     if (hadNode) { const old = lot.node; this.edges = this.edges.filter(e => !(e[2] === 2 && (e[0] === old || e[1] === old))); lot.node = -1; this.graphDirty = true; } // 拆掉旧门口的小径
-    Object.assign(lot, { x, z, rot, fx: x, fz: z });
+    Object.assign(lot, { x, z, rot, fx: x, fz: z }); lot.fmark = 1; this.floraMark(lot); // 搬到植物上：小动物去清（搬家本身不等）
     if (hadNode) this.placeLot(lot, x, z, rot); // 新门口接一段小径到最近的路
     else if (lot.door || lot.stage === 'renovate' || lot.done) { const c = Math.cos(rot), sn = Math.sin(rot); const dl = this.K[lot.kind].door; lot.door = [x + dl[0] * c + dl[1] * sn, z - dl[0] * sn + dl[1] * c]; }
     const p = this.projects.find(q => q.lot === id);

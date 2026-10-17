@@ -8,8 +8,8 @@ import { patch } from './core.js';
 
 // ---------------------------------------------------------------- 尺度（世界单位）
 export const RESIDENT_H = 1.6;              // 居民平均身高：characters.js 各物种 top 1.08～1.78 × CS 1.12，取常见值
-export const LENIA_H = RESIDENT_H * 7;      // Lenia 站立高度 ≈ 居民的 7 倍
-export const NUGGET_H = LENIA_H * 0.25;     // 鸡块高约 Lenia 的 1/4
+export const LENIA_H = 73;                  // Lenia 站立高度：真实 160 厘米 ÷ 2.2 厘米/单位 ≈ 73（尺寸统一第二步，老板 2026-10-17 拍板；她是巨人，永不全身入镜，只露局部）
+export const NUGGET_H = 2.8;                // 鸡块保持小个子（老板拍板：不跟着 Lenia 放大；原值 = 旧 LENIA_H 11.2 × 0.25）
 export const LENIA_POSES = ['idle', 'walk', 'read', 'water', 'carry', 'wave'];
 export const NUGGET_POSES = ['idle', 'hop', 'hold', 'lean'];
 

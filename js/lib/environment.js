@@ -8,6 +8,35 @@ export { ENV_PROBES, envProbe };
 import { STREAM, streamDist, WORLD_R, EDGE_R, PLAZA_R, RESOURCES, STORE_POS, startGraph } from '../shared/layout.js';
 
 export const GS = 200; // 地面边长
+// ---------------------------------------------------------------- 远景巨物不挡镜头
+// 远景巨物（栅栏、花盆、铁罐、巨型雏菊……）只是用来遮住外面没修整的环境，不该挡住小镇。
+// 做法：着色器里按“离镜头多远 / 镜头到目标点多远”给半径 uR 以外的片元做抖动透明——
+// 在镜头和目标点之间（或贴近镜头）的远景会随镜头移动平滑地淡出，目标点后面的照常显示。
+// 地面、外圈草地、河岸这类铺在地上的东西用 NO_FADE 排除。
+export const BACKDROP_FADE = { uCam: { value: new THREE.Vector3() }, uTgt: { value: new THREE.Vector3() }, uR: { value: 86 } };
+export const NO_FADE = new Set();
+export function installBackdropFade(scene) {
+  const done = new Set();
+  scene.traverse(o => {
+    if (!o.isMesh || !o.material) return;
+    for (const mat of (Array.isArray(o.material) ? o.material : [o.material])) {
+      if (!mat || done.has(mat) || NO_FADE.has(mat) || mat.isShaderMaterial) continue; done.add(mat);
+      const prev = mat.onBeforeCompile;
+      mat.onBeforeCompile = (sh, r) => { if (prev) prev(sh, r);
+        Object.assign(sh.uniforms, BACKDROP_FADE);
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vBfW;').replace('#include <project_vertex>', `#include <project_vertex>
+#ifdef USE_INSTANCING
+vBfW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+#else
+vBfW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+#endif`);
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uCam, uTgt; uniform float uR; varying vec3 vBfW;').replace('#include <color_fragment>', `#include <color_fragment>
+if (dot(vBfW.xz, vBfW.xz) > uR * uR) { float bfT = distance(vBfW, uCam) / max(distance(uCam, uTgt), 1.0); float bfA = smoothstep(0.78, 0.97, bfT);
+  if (bfA < 0.999) { float bfN = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); if (bfN >= bfA) discard; } }`); };
+      const key = mat.customProgramCacheKey ? mat.customProgramCacheKey() : ''; mat.customProgramCacheKey = () => key + 'bf'; mat.needsUpdate = true;
+    }
+  });
+}
 // 小溪在 200×200 的地块外不再截断：沿两端的方向弯弯地继续往外流到雾里（只在渲染里延伸，模拟里的 STREAM 不动，路网和桥不受影响）
 function streamExt(a, b, sign) { // a→b 是溪的端头方向（b 是端点），往外延伸 ~480 单位
   const out = []; let x = b[0], z = b[1]; let ang = Math.atan2(b[1] - a[1], b[0] - a[0]); const ph = sign * 1.3;
@@ -21,12 +50,21 @@ const EXT_SEGS = [[STREAM[0], ...STREAM_EXT_A], [STREAM[STREAM.length - 1], ...S
 export const streamDistFull = (x, z) => Math.min(streamDist(x, z), extDist(x, z));
 function extDist(x, z) { let m = 1e9; for (const S of EXT_SEGS) for (let i = 0; i < S.length - 1; i++) { const a = S[i], b = S[i + 1]; if (Math.abs(a[0] - x) > 14 && Math.abs(b[0] - x) > 14 || Math.abs(a[1] - z) > 14 && Math.abs(b[1] - z) > 14) continue; m = Math.min(m, segDist(x, z, a[0], a[1], b[0], b[1])); } return m; }
 // 地面真实高度（含边缘渐隐；200×200 地块以外是平地）：远景物件脚下用它
-export const surfY = (x, z) => { const m = Math.max(Math.abs(x), Math.abs(z)); return m >= GS / 2 ? -0.03 : groundH(x, z) * (1 - smooth(GS * 0.44, GS * 0.5, m)); };
-export function groundH(x, z) {
+// 小溪的“河床深度系数”：花园里是 1（原样深挖），靠近 200×200 地块边缘时慢慢变浅到 0，到外圈和平地同高。
+// 河床、河岸、水面共用它，所以花园里到花园外是一条连续的河，没有台阶和楔形。
+const streamK = (x, z) => 1 - smooth(GS * 0.38, GS * 0.5, Math.max(Math.abs(x), Math.abs(z)));
+function groundParts(x, z) {
   const r = Math.hypot(x, z);
-  let h = smooth(WORLD_R + 6, WORLD_R + 30, r) * (fbm(x * 0.04 + 3, z * 0.04 + 7) * 3.2 + 0.4);
-  const sd = Math.min(streamDist(x, z), extDist(x, z)); const carve = 1 - smooth(2.2, 4.4, sd);
-  return h * (1 - carve) - 1.15 * carve;
+  const hills = smooth(WORLD_R + 6, WORLD_R + 30, r) * (fbm(x * 0.04 + 3, z * 0.04 + 7) * 3.2 + 0.4);
+  const sd = Math.min(streamDist(x, z), extDist(x, z)); return [hills, 1 - smooth(2.2, 4.4, sd), -1.15 * streamK(x, z)]; // 第三项：河床高度（花园里 -1.15，靠边缘慢慢升到 0）
+}
+// 水面高度：和河床同一个系数，水始终比河床高；出了地块和外圈河岸一样平
+const waterY = (x, z) => { const k = streamK(x, z); return -0.52 * k + 0.04 * (1 - k); };
+// 地面真实高度（含边缘渐隐；200×200 地块以外是平地）：远景物件脚下用它
+export const surfY = (x, z) => { const m = Math.max(Math.abs(x), Math.abs(z)); if (m >= GS / 2) return -0.03; const [h, c, bed] = groundParts(x, z); return h * (1 - smooth(GS * 0.44, GS * 0.5, m)) * (1 - c) + bed * c; };
+export function groundH(x, z) {
+  const [h, c, bed] = groundParts(x, z);
+  return h * (1 - c) + bed * c;
 }
 // ---------------------------------------------------------------- ground
 export function buildGround(scene) {
@@ -56,11 +94,11 @@ export function buildGround(scene) {
   const p = geo.attributes.position; const col = new Float32Array(p.count * 3);
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i); const edgeF = 1 - smooth(GS * 0.44, GS * 0.5, Math.max(Math.abs(x), Math.abs(z)));
-    const h = groundH(x, z) * edgeF; p.setY(i, h);
+    const [hh, cc, bed] = groundParts(x, z); const h = hh * edgeF * (1 - cc) + bed * cc; p.setY(i, h);
     const v = 0.9 + 0.14 * fbm(x * 0.08, z * 0.08) + clamp(h, -0.5, 1) * 0.04; col[i * 3] = v; col[i * 3 + 1] = v; col[i * 3 + 2] = v * 0.97;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, M('#ffffff', { map: tex, vc: true, r: 0.95, rim: 0.25, fol: 2.3 })); m.receiveShadow = true; scene.add(m);
+  const gMat = M('#ffffff', { map: tex, vc: true, r: 0.95, rim: 0.25, fol: 2.3 }); NO_FADE.add(gMat); const m = new THREE.Mesh(geo, gMat); m.receiveShadow = true; scene.add(m);
   // 外圈草地：条纹按世界坐标算（和地块里割草机留下的条纹一条对一条），再叠一层很淡的明暗斑，颜色和地块一致，拉到最远也看不出接缝
   const outerM = M('#7cc444', { r: 0.95, rim: 0.25, fol: 2.3, outer: 1 }); const prevC = outerM.onBeforeCompile;
   outerM.onBeforeCompile = (sh, r) => { prevC(sh, r);
@@ -69,7 +107,7 @@ export function buildGround(scene) {
   vec3 jkS = mix(vec3(0.965, 0.98, 0.97), vec3(1.04, 1.015, 1.06), jkOdd) * vec3(1.03, 0.965, 1.12);
   float jkN = jkWN(vJkW.xz * 0.05) * 0.5 + jkWN(vJkW.xz * 0.21 + 4.0) * 0.5; diffuseColor.rgb *= jkS * (0.88 + 0.14 * jkN) * (0.95 + 0.1 * jkWN(vJkW.xz * 1.7)); }`); };
   outerM.customProgramCacheKey = () => 'jk-outer'; outerM.polygonOffset = true; outerM.polygonOffsetFactor = 2; outerM.polygonOffsetUnits = 2;
-  const outer = new THREE.Mesh(new THREE.RingGeometry(GS * 0.48, 1100, 64, 1).rotateX(-PI / 2), outerM); outer.position.y = -0.03; outer.receiveShadow = true; scene.add(outer);
+  NO_FADE.add(outerM); const outer = new THREE.Mesh(new THREE.RingGeometry(GS * 0.48, 1100, 64, 1).rotateX(-PI / 2), outerM); outer.position.y = -0.03; outer.receiveShadow = true; scene.add(outer);
 }
 // ---------------------------------------------------------------- water (stream strip from shared polyline)
 export let waterMat = null;
@@ -79,7 +117,7 @@ export function buildWater(scene) {
     const c = SF[i], a = SF[Math.max(0, i - 1)], b = SF[Math.min(N - 1, i + 1)];
     let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
     if (i) acc += Math.hypot(c[0] - SF[i - 1][0], c[1] - SF[i - 1][1]);
-    for (let j = 0; j < A; j++) { const u = j / (A - 1); const off = (u - 0.5) * 6.4; const wx = c[0] - tz * off, wz = c[1] + tx * off; pos.push(wx, -0.52 + 0.56 * smooth(GS * 0.44, GS * 0.5, Math.max(Math.abs(wx), Math.abs(wz))), wz); uv.push(u, acc / 6); }
+    for (let j = 0; j < A; j++) { const u = j / (A - 1); const off = (u - 0.5) * 6.4; const wx = c[0] - tz * off, wz = c[1] + tx * off; pos.push(wx, waterY(wx, wz), wz); uv.push(u, acc / 6); }
   }
   for (let i = 0; i < N - 1; i++) for (let j = 0; j < A - 1; j++) { const a = i * A + j, b = a + 1, c = a + A, d = c + 1; idx.push(a, c, b, b, c, d); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
@@ -107,13 +145,13 @@ export function buildWater(scene) {
   });
   const m = new THREE.Mesh(geo, waterMat); m.renderOrder = 1; scene.add(m);
   // 地块外的溪岸：平平的一条沙土带（水面盖在中间），沿着延伸段一直到雾里
-  { const pos2 = [], col2 = [], idx2 = []; const cB = new THREE.Color('#6f8f86'), cS = new THREE.Color('#b8a27a'), cD = new THREE.Color('#d8c79a'); let n2 = 0;
-    const prof = [[-4.7, cD], [-3.9, cD], [-3.2, cS], [-2.4, cB], [2.4, cB], [3.2, cS], [3.9, cD], [4.7, cD]];
-    for (let i = 0; i < N; i++) { const c = SF[i], a = SF[Math.max(0, i - 1)], b = SF[Math.min(N - 1, i + 1)]; if (Math.max(Math.abs(c[0]), Math.abs(c[1])) < GS * 0.5 - 1.5) continue; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+  { const pos2 = [], col2 = [], idx2 = []; const cB = new THREE.Color('#6f8f86'), cS = new THREE.Color('#b8a27a'), cD = new THREE.Color('#d8c79a'); let n2 = 0, prevI = -2; const brk = new Set(); // brk：断开处（上游段和下游段之间不能连成一整片）
+    const prof = [[-4.4, cD], [-3.9, cD], [-3.5, cS], [-2.7, cB], [2.7, cB], [3.5, cS], [3.9, cD], [4.4, cD]];
+    for (let i = 0; i < N; i++) { const c = SF[i], a = SF[Math.max(0, i - 1)], b = SF[Math.min(N - 1, i + 1)]; if (Math.max(Math.abs(c[0]), Math.abs(c[1])) < GS * 0.5 - 0.5) continue; if (i !== prevI + 1) brk.add(n2); prevI = i; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
       for (const [off, col] of prof) { pos2.push(c[0] - tz * off, -0.012, c[1] + tx * off); col2.push(col.r, col.g, col.b); } n2++; }
-    for (let i = 0; i < n2 - 1; i++) for (let j = 0; j < prof.length - 1; j++) { const a = i * prof.length + j, b = a + 1, c = a + prof.length, d = c + 1; idx2.push(a, c, b, b, c, d); }
+    for (let i = 0; i < n2 - 1; i++) if (!brk.has(i + 1)) for (let j = 0; j < prof.length - 1; j++) { const a = i * prof.length + j, b = a + 1, c = a + prof.length, d = c + 1; idx2.push(a, c, b, b, c, d); }
     const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(pos2, 3)); g2.setAttribute('color', new THREE.Float32BufferAttribute(col2, 3)); g2.setIndex(idx2); g2.computeVertexNormals();
-    const bm = new THREE.Mesh(g2, M('#ffffff', { vc: true, r: 1, ds: true })); bm.receiveShadow = true; scene.add(bm); }
+    const bMat = M('#ffffff', { vc: true, r: 1, ds: true, uniq: 'bank' }); NO_FADE.add(bMat); const bm = new THREE.Mesh(g2, bMat); bm.receiveShadow = true; scene.add(bm); }
   // 河石 + 睡莲
   const rocks = []; const SS = STREAM;
   for (let i = 0; i < SS.length; i += 2) { const p = SS[i]; if (Math.hypot(p[0], p[1]) > 95) continue; for (const side of [-1, 1]) { if (rng() < 0.62) continue; const q = SS[Math.min(i + 1, SS.length - 1)]; const tx = q[0] - p[0], tz = q[1] - p[1]; const l = Math.hypot(tx, tz) || 1; const off = side * R(2.6, 3.6); rocks.push([p[0] - tz / l * off, p[1] + tx / l * off, R(0.45, 1.15)]); } }
@@ -377,7 +415,7 @@ function buildGiantClover(scene, x, z, h) {
   mergeStatic(g);
 }
 function gateClear(x, z) { const { nodes } = startGraph(); for (const n of nodes) if (n.k === 'gate') { const a = Math.atan2(n.z, n.x), b = Math.atan2(z, x); if (Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < 0.2) return false; } return true; }
-export const OUTER_TREES = []; // 花园外圈草坪上的植物丛（蒲公英 / 三叶草 / 狗尾草）[x, z, 避让大小]，放旧物时避开
+export const OUTER_TREES = []; // 花园外圈的花圃（Lenia 的花圃，render/cameo.js 登记）[x, z, 避让大小]，放旧物时避开；外圈的植物丛已经进了模拟（shared/flora.js），旧物可以放上去、由小动物先清掉
 export function buildBackdrop(scene) {
   const n0 = scene.children.length;
   const ring = (n, r0, r1, f) => { let k = 0; for (let i = 0; i < n * 3 && k < n; i++) { const a = R(0, TAU), r = R(r0, r1); const x = Math.cos(a) * r, z = Math.sin(a) * r; if (streamDist(x, z) < 8 || !gateClear(x, z)) continue; f(x, z); k++; } };
@@ -385,9 +423,9 @@ export function buildBackdrop(scene) {
   ring(LOW ? 6 : 10, 88, 100, (x, z) => buildGiantClover(scene, x, z, R(3.3, 5.5)));    // 三叶草缩小到约 0.55 倍
   // 远圈原来的树拿掉（真树 4 米放不进画面），补高大的狗尾草丛和蒲公英
   { let k = 0; ring(LOW ? 8 : 14, 80, 92, (x, z) => { if (k++ % 3 === 2) dandelionPlant(scene, x, groundH(x, z), z, R(11, 14)); else foxtailClump(scene, x, groundH(x, z), z, R(11, 15)); }); }
-  // 小镇外圈：蒲公英（开花 / 结球）、三叶草丛、狗尾草丛 —— 季节变化靠它们（位置记下来，放旧物时避开）
-  { let k = 0; ring(LOW ? 9 : 12, 54, 59, (x, z) => { const t = k++ % 4; const y = groundH(x, z);
-      if (t < 2) { dandelionPlant(scene, x, y, z, R(10, 12)); OUTER_TREES.push([x, z, 1.9]); } else if (t === 2) { cloverClump(scene, x, y, z, R(4.2, 5)); OUTER_TREES.push([x, z, 1.25]); } else { foxtailClump(scene, x, y, z, R(11, 13)); OUTER_TREES.push([x, z, 1.3]); } }); }
+  // 小镇外圈的蒲公英 / 三叶草 / 狗尾草丛：现在是模拟里的东西（shared/flora.js 的确定布局，render/flora.js 画），不在这里随机撒了
+  // （为了让外面这一圈远景花草的随机排布和以前完全一样，照旧把这一圈的随机数“用掉”：造在一个不加进场景的空组里）
+  { const dummy = new THREE.Group(); let k = 0; ring(LOW ? 9 : 12, 54, 59, (x, z) => { const t = k++ % 4; const y = groundH(x, z); if (t < 2) dandelionPlant(dummy, x, y, z, R(10, 12)); else if (t === 2) cloverClump(dummy, x, y, z, R(4.2, 5)); else foxtailClump(dummy, x, y, z, R(11, 13)); }); }
   ring(10, 80, 95, (x, z) => buildMushroom(scene, x, z, R(1.2, 2.2)));
   // 地块外一直到雾里：疏疏落落的巨型花草，颜色和近处一致（拉远镜头不空、不穿帮）
   const far = (n, r0, r1, f) => { for (let i = 0, k = 0; i < n * 4 && k < n; i++) { const a = R(0, TAU), r = R(r0, r1); const x = Math.cos(a) * r, z = Math.sin(a) * r; if (streamDistFull(x, z) < 10) continue; f(x, z, k); k++; } };
